@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apption-Style Adaptive Calendar</title>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #333333;
+      --gray-text: #cccccc;
+      --highlight-hex: #A7C0DA; 
+      --highlight-rgba: rgba(167, 192, 218, 0.2);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      
+    }
+    
+    .dashboard {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      width: 100%;
+      padding: 0 2px; /* 两侧留一点点呼吸间距 */
+      flex: 1;
+    }
+
+    /* 月份标签：固定宽度，不参与平分 */
+    .month-label {
+      font-size: 1.2rem;
+      font-weight: 700;
+      padding-right: 6px;
+      
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .timeline-window {
+      flex-grow: 1;      /* 强制占据剩余所有空间 */
+      display: flex;
+      overflow: hidden;  /* 暂时关闭滚动，测试全自适应 */
+}
+    /* 日历行：占据剩余所有空间 */
+    
+    .timeline-row {
+      display: flex;
+      flex-direction: row;
+      flex: 1; 
+      width:calc(100vw - 86px);
+      justify-content: space-between;
+    }
+
+    /* 每一个日期单元格：绝对平分空间 */
+    .day-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1; /* 核心：让所有日期强制平分 timeline-row 的宽度 */
+      min-width: 0px; /* 允许无限缩小，实现像 Apption 那样的自适应 */
+      position: relative;
+    }
+
+    .week-name {
+      font-size: 10px;
+      color: #999;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .date-number {
+      line-height: 30px;
+      font-size: 12px;
+      width: 100%;
+      height: 30px;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* 高亮逻辑 */
+    .in-week-range { background-color: var(--highlight-rgba); }
+    .pill-left { border-top-left-radius: 15px; border-bottom-left-radius: 15px; }
+    .pill-right { border-top-right-radius: 15px; border-bottom-right-radius: 15px; }
+    
+    .is-target { color: #ffffff !important; }
+    .is-target .circle {
+      display: inline-block;
+      background-color: var(--highlight-hex);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      position: absolute;
+      top: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+    }
+    .is-target span { position: relative; z-index: 3; }
+
+    @media (prefers-color-scheme: dark) {
+      :root { --bg-color: #191919; --text-color: #efefef; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <div class="month-label" id="mLabel">月</div>
+    <div class="timeline-row" id="tRow"></div>
+  </div>
+
+<script>
+  function getParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return {
+      date: urlParams.get('date') || urlParams.get('start'),
+      highlight: urlParams.get('highlight') || 'A7C0DA'
+    };
+  }
+
+  window.onload = function () {
+    const params = getParams();
+    const highligh_hex = params.highlight.startsWith('#') ? params.highlight : '#' + params.highlight;
+    document.documentElement.style.setProperty('--highlight-hex', highligh_hex);
+    
+    let target = params.date ? new Date(params.date) : new Date();
+    let tYear = target.getFullYear();
+    let tMonth = target.getMonth();
+    let tDate = target.getDate();
+
+    // 计算当前周
+    let dayIdx = target.getDay() || 7;
+    let mon = new Date(target);
+    mon.setDate(tDate - (dayIdx - 1));
+    mon.setHours(0,0,0,0);
+    let sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    sun.setHours(23,59,59,999);
+
+    const mNum = tMonth + 1;
+    const lastDay = new Date(tYear, mNum, 0).getDate();
+    document.getElementById('mLabel').innerHTML = mNum + "月";
+    
+    const row = document.getElementById('tRow');
+    const weekdayStrs = ["", "一", "二", "三", "四", "五", "六", "日"];
+
+    for (let d = 1; d <= lastDay; d++) {
+      const cur = new Date(tYear, tMonth, d);
+      const wd = cur.getDay() || 7;
+      const time = cur.getTime();
+
+      const item = document.createElement('div');
+      item.className = 'day-item';
+
+      const wdLabel = document.createElement('div');
+      wdLabel.className = 'week-name';
+      wdLabel.innerHTML = weekdayStrs[wd];
+      item.appendChild(wdLabel);
+
+      const cell = document.createElement('div');
+      cell.className = 'date-number';
+      
+      if (time >= mon.getTime() && time <= sun.getTime()) {
+        cell.classList.add('in-week-range');
+        if (wd === 1 || d === 1) cell.classList.add('pill-left');
+        if (wd === 7 || d === lastDay) cell.classList.add('pill-right');
+      }
+
+      if (d === tDate) {
+        cell.classList.add('is-target');
+        cell.innerHTML = `<div class="circle"></div><span>${d}</span>`;
+      } else {
+        cell.innerHTML = `<span>${d}</span>`;
+      }
+
+      item.appendChild(cell);
+      row.appendChild(item);
+    }
+  };
+</script>
+</body>
+</html>
