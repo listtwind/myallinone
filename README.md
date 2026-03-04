@@ -3,7 +3,8 @@
   <summary>Notion </summary>
   
   **为了方便在 Notion 中嵌入，请直接复制以下链接：**
-  
+  <table><tr><td>
+    
   ### 周历：
   ```text
   https://listtwind.github.io/myallinone/notion/week.html
