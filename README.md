@@ -12,5 +12,7 @@
 
   ### 番茄钟：
   https://listtwind.github.io/myallinone/notion/pomodoro.html
-
+  #### 周历 (Week Calendar)
+```text
+[https://listtwind.github.io/myallinone/notion/week.html](https://listtwind.github.io/myallinone/notion/week.html)
 </details>
