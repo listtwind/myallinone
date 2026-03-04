@@ -1,4 +1,4 @@
-# myallinone
+# All In One
 <details>
   <summary>Notion </summary>
   
