@@ -4,6 +4,165 @@
     <meta charset="UTF-8">
     <title>番茄钟定时器</title>
     <style>
+        /* 彻底禁用所有滚动条和外部边距 */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 480px;  /* 绝对宽度 */
+            height: 150px; /* 绝对高度 */
+            overflow: hidden;
+            background: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .container {
+            display: flex;
+            width: 480px;
+            height: 150px;
+            align-items: center;
+            justify-content: center;
+            padding-left: 10px;
+            box-sizing: border-box;
+        }
+
+        /* 左侧时间部分：锁定宽度防止抖动 */
+        #timer {
+            width: 220px; 
+            font-size: 88px; /* 还原大字视觉 */
+            font-weight: bold;
+            color: #4b4b48;
+            text-align: right;
+            line-height: 1;
+            letter-spacing: -2px;
+        }
+
+        /* 左右两部分的绝对边距 */
+        .spacer {
+            width: 40px; 
+        }
+
+        /* 右侧按钮容器 */
+        .buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px; /* 两行按钮之间的上下边距 */
+            width: 200px;
+        }
+
+        /* 按钮行布局 */
+        .quick-time-btns, .control-btns {
+            display: flex;
+            gap: 8px; /* 按钮之间的横向间距 */
+        }
+
+        /* 通用按钮样式：还原图片中的圆角和边框 */
+        button {
+            background: white;
+            color: #4b4b48;
+            border: 1px solid #4b4b48;
+            border-radius: 25px; /* 胶囊形状 */
+            cursor: pointer;
+            font-size: 15px;
+            height: 36px;
+            transition: background 0.2s;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        button:hover {
+            background: #f5f5f5;
+        }
+
+        /* 第一行：3个等宽小按钮 */
+        .quick-time-btns button {
+            width: 62px;
+        }
+
+        /* 第二行：2个等宽长按钮 */
+        .control-btns button {
+            width: 97px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="timer">00:00</div>
+        
+        <div class="spacer"></div>
+        
+        <div class="buttons-container">
+            <div class="quick-time-btns">
+                <button onclick="setTime(25)">25m</button>
+                <button onclick="setTime(5)">5m</button>
+                <button onclick="setTime(15)">15m</button>
+            </div>
+            <div class="control-btns">
+                <button id="pauseBtn" onclick="togglePause()">暂停</button>
+                <button onclick="stopTimer()">停止</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timeLeft = 0;
+        let timerId = null;
+        let isPaused = false;
+        const audio = new Audio('https://img.tukuppt.com/newpreview_music/09/00/55/5c89339401f8a46437.mp3');
+
+        function updateDisplay(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            document.getElementById('timer').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+        }
+
+        function setTime(minutes) {
+            timeLeft = minutes * 60;
+            updateDisplay(timeLeft);
+            startTimer();
+        }
+
+        function startTimer() {
+            if (timerId) clearInterval(timerId);
+            isPaused = false;
+            document.getElementById('pauseBtn').textContent = '暂停';
+            
+            timerId = setInterval(() => {
+                if (!isPaused) {
+                    timeLeft--;
+                    updateDisplay(timeLeft);
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(timerId);
+                        audio.loop = true;
+                        audio.play();
+                    }
+                }
+            }, 1000);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            document.getElementById('pauseBtn').textContent = isPaused ? '继续' : '暂停';
+        }
+
+        function stopTimer() {
+            clearInterval(timerId);
+            timeLeft = 0;
+            updateDisplay(0);
+            audio.pause();
+            audio.currentTime = 0;
+        }
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>番茄钟定时器</title>
+    <style>
         body, html {
             margin: 0;
             padding: 0;
