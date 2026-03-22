@@ -4,65 +4,63 @@
     <meta charset="UTF-8">
     <title>番茄钟定时器</title>
     <style>
-        /* 基础样式重置，确保不留白 */
         body {
             margin: 0;
             padding: 0;
             background: white;
-            overflow: hidden; /* 彻底禁用滚动条 */
+            overflow: hidden; /* 严禁滚动条 */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
         }
 
         .container {
             display: flex;
-            width: 100vw; /* 占满视图宽度 */
-            height: 100vh; /* 占满视图高度 */
+            width: 100vw;
+            height: 100vh;
             background: white;
-            padding: 10px;
-            box-sizing: border-box; /* 确保padding不撑大容器 */
             align-items: center;
             justify-content: center;
+            padding: 0 10px;
+            box-sizing: border-box;
         }
 
         .pomodoro-section {
             display: flex;
-            width: 100%;
-            max-width: 760px; /* 留出一点边距 */
+            flex-direction: row; /* 强制横向 */
+            flex-wrap: nowrap;   /* 严禁换行 */
             align-items: center;
             justify-content: center;
-            gap: 20px; /* 减小间距，防止溢出 */
-            flex-wrap: wrap; /* 核心：宽度不足时自动换行，防止横向滚动 */
+            width: 100%;
+            gap: clamp(10px, 4vw, 40px); /* 间距随宽度自动缩小 */
         }
 
         #timer {
-            font-size: clamp(48px, 15vw, 72px); /* 响应式字体大小 */
+            /* 字体大小根据屏幕宽度动态调整，确保不撑破容器 */
+            font-size: clamp(40px, 12vw, 80px); 
             font-weight: bold;
             color: #4b4b48;
             margin: 0;
             line-height: 1;
-            flex-shrink: 0; /* 防止时间被压缩 */
+            flex-shrink: 1; /* 空间不足时允许时间缩小 */
+            text-align: right;
+            min-width: 1.2em; /* 保证数字占位稳定 */
         }
 
         .buttons-container {
             display: flex;
             flex-direction: column;
-            align-items: stretch;
-            justify-content: center;
-            gap: 12px;
-            width: 100%;
-            max-width: 220px; /* 限制按钮组最大宽度 */
-            flex-shrink: 0;
+            gap: 10px;
+            width: 220px;   /* 按钮组固定宽度，确保点击体验 */
+            flex-shrink: 0; /* 严禁按钮组被压缩 */
         }
 
-        /* 按钮组布局 */
         .quick-time-btns, .control-btns {
             display: flex;
             justify-content: space-between;
-            gap: 8px;
+            gap: 6px;
         }
 
-        /* 通用按钮样式 */
         button {
-            flex: 1; /* 让按钮平分可用空间 */
+            flex: 1;
             padding: 8px 0;
             background: white;
             color: #4b4b48;
@@ -70,23 +68,20 @@
             border-radius: 20px;
             cursor: pointer;
             box-sizing: border-box;
-            text-align: center;
-            font-size: 14px;
-            white-space: nowrap; /* 防止按钮文字换行 */
+            font-size: 13px;
+            white-space: nowrap;
+            transition: background 0.2s;
         }
         
         button:hover {
             background: #f5f5f5;
         }
 
-        /* 窄屏适配：如果宽度真的非常小（比如侧边栏） */
-        @media (max-width: 400px) {
-            .pomodoro-section {
-                gap: 10px;
-            }
-            #timer {
-                font-size: 48px;
-            }
+        /* 极窄屏幕下的最后保底逻辑 */
+        @media (max-width: 350px) {
+            .pomodoro-section { gap: 8px; }
+            .buttons-container { width: 180px; }
+            button { font-size: 11px; padding: 5px 0; }
         }
     </style>
 </head>
@@ -109,7 +104,6 @@
     </div>
 
     <script>
-        // 逻辑部分保持不变
         let timeLeft = 0;
         let timerId = null;
         let isPaused = false;
