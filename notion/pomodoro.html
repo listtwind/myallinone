@@ -2,109 +2,114 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>番茄钟-绝对定位版</title>
+    <title>番茄钟定时器</title>
     <style>
-        :root {
-            --main-color: #4b4b48;
-            --bg-color: #ffffff;
-            --container-width: 500px;
-            --container-height: 160px;
-        }
-
+        /* 基础样式重置，确保不留白 */
         body {
             margin: 0;
             padding: 0;
-            background: var(--bg-color);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden;
+            background: white;
+            overflow: hidden; /* 彻底禁用滚动条 */
         }
 
-        /* 外层容器：模拟图片的固定画布 */
-        .canvas {
-            position: relative;
-            width: var(--container-width);
-            height: var(--container-height);
-            margin: 0 auto;
-            background: var(--bg-color);
+        .container {
+            display: flex;
+            width: 100vw; /* 占满视图宽度 */
+            height: 100vh; /* 占满视图高度 */
+            background: white;
+            padding: 10px;
+            box-sizing: border-box; /* 确保padding不撑大容器 */
+            align-items: center;
+            justify-content: center;
         }
 
-        /* 计时器：固定在左侧 30px 处 */
+        .pomodoro-section {
+    display: flex;
+    width: 100%;
+    max-width: 760px; /* 留出一点边距 */
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 4vw, 20px); /* 允许间距随宽度缩小，最小保留8px，最大20px */
+    flex-wrap: nowrap; /* 核心修改：彻底禁止换行，强制左右排布 */
+}
+
         #timer {
-            position: absolute;
-            left: 30px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 82px;
-            font-weight: 700;
-            color: var(--main-color);
+            font-size: clamp(48px, 15vw, 72px); /* 响应式字体大小 */
+            font-weight: bold;
+            color: #4b4b48;
+            margin: 0;
             line-height: 1;
-            letter-spacing: -2px;
+            flex-shrink: 0; /* 防止时间被压缩 */
         }
 
-        /* 按钮组容器：固定在右侧 30px 处 */
-        .buttons-group {
-            position: absolute;
-            right: 30px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 210px;
+        .buttons-container {
             display: flex;
             flex-direction: column;
+            align-items: stretch;
+            justify-content: center;
             gap: 12px;
-        }
-
-        .row {
-            display: flex;
-            gap: 8px;
             width: 100%;
+            max-width: 220px; /* 限制按钮组最大宽度 */
+            flex-shrink: 0;
         }
 
+        /* 按钮组布局 */
+        .quick-time-btns, .control-btns {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        /* 通用按钮样式 */
         button {
-            flex: 1;
-            height: 34px;
+            flex: 1; /* 让按钮平分可用空间 */
+            padding: 8px 0;
             background: white;
-            color: var(--main-color);
-            border: 1px solid #d3d3d3;
-            border-radius: 17px; /* 胶囊形状 */
+            color: #4b4b48;
+            border: 1px solid #4b4b48;
+            border-radius: 20px;
             cursor: pointer;
+            box-sizing: border-box;
+            text-align: center;
             font-size: 14px;
-            transition: background 0.2s;
-            outline: none;
-            white-space: nowrap;
+            white-space: nowrap; /* 防止按钮文字换行 */
         }
-
+        
         button:hover {
-            background: #f0f0f0;
+            background: #f5f5f5;
         }
 
-        button:active {
-            background: #e5e5e5;
-        }
-
-        /* 针对下方两个大按钮的特殊处理（如果需要与上方三按钮视觉对齐） */
-        .control-btns button {
-            font-weight: 500;
+        /* 窄屏适配：如果宽度真的非常小（比如侧边栏） */
+        @media (max-width: 400px) {
+            .pomodoro-section {
+                gap: 10px;
+            }
+            #timer {
+                font-size: 48px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="canvas">
-        <div id="timer">00:00</div>
-        
-        <div class="buttons-group">
-            <div class="row">
-                <button onclick="setTime(25)">25m</button>
-                <button onclick="setTime(5)">5m</button>
-                <button onclick="setTime(15)">15m</button>
-            </div>
-            <div class="row control-btns">
-                <button id="pauseBtn" onclick="togglePause()">暂停</button>
-                <button onclick="stopTimer()">停止</button>
+    <div class="container">
+        <div class="pomodoro-section">
+            <div id="timer">00:00</div>
+            <div class="buttons-container">
+                <div class="quick-time-btns">
+                    <button onclick="setTime(25)">25min</button>
+                    <button onclick="setTime(5)">5min</button>
+                    <button onclick="setTime(15)">15min</button>
+                </div>
+                <div class="control-btns">
+                    <button id="pauseBtn" onclick="togglePause()">暂停</button>
+                    <button onclick="stopTimer()">停止</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // 逻辑部分保持不变
         let timeLeft = 0;
         let timerId = null;
         let isPaused = false;
@@ -143,7 +148,6 @@
         }
 
         function togglePause() {
-            if (timeLeft <= 0) return;
             isPaused = !isPaused;
             document.getElementById('pauseBtn').textContent = isPaused ? '继续' : '暂停';
         }
@@ -154,7 +158,6 @@
             updateDisplay(0);
             audio.pause();
             audio.currentTime = 0;
-            document.getElementById('pauseBtn').textContent = '暂停';
         }
     </script>
 </body>
