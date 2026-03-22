@@ -1,315 +1,164 @@
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
     <meta charset="UTF-8">
-
     <title>番茄钟定时器</title>
-
     <style>
+        /* 基础样式重置，确保不留白 */
+        body {
+            margin: 0;
+            padding: 0;
+            background: white;
+            overflow: hidden; /* 彻底禁用滚动条 */
+        }
 
         .container {
-
             display: flex;
-
-            max-width: 500px;
-
-            height: 120px;
-
+            width: 100vw; /* 占满视图宽度 */
+            height: 100vh; /* 占满视图高度 */
             background: white;
-
-            padding: 6px;
-
-            gap: 0;
-
-            margin-top: 8px;
-
+            padding: 10px;
+            box-sizing: border-box; /* 确保padding不撑大容器 */
             align-items: center;
-
-            justify-content: flex-start;
-
-            margin-left: -20px;
-
-            padding-left: 0;
-
+            justify-content: center;
         }
-
-
-
-
-
-
 
         .pomodoro-section {
-
             display: flex;
-
             width: 100%;
-
+            max-width: 760px; /* 留出一点边距 */
             align-items: center;
-
             justify-content: center;
-
-            gap: 50px;
-
+            gap: 20px; /* 减小间距，防止溢出 */
+            flex-wrap: wrap; /* 核心：宽度不足时自动换行，防止横向滚动 */
         }
-
-
 
         #timer {
-
-            font-size: 64px;
-
+            font-size: clamp(48px, 15vw, 72px); /* 响应式字体大小 */
             font-weight: bold;
-
             color: #4b4b48;
-
             margin: 0;
-
+            line-height: 1;
+            flex-shrink: 0; /* 防止时间被压缩 */
         }
-
-
 
         .buttons-container {
-
             display: flex;
-
             flex-direction: column;
-
             align-items: stretch;
-
             justify-content: center;
-
-            height: 100%;
-
-            gap: 16px;
-
-            width: 240px;
-
+            gap: 12px;
+            width: 100%;
+            max-width: 220px; /* 限制按钮组最大宽度 */
+            flex-shrink: 0;
         }
-
-
 
         /* 按钮组布局 */
-
-        .quick-time-btns {
-
+        .quick-time-btns, .control-btns {
             display: flex;
-
             justify-content: space-between;
-
+            gap: 8px;
         }
-
-        
-
-        .control-btns {
-
-            display: flex;
-
-            justify-content: space-between;
-
-            margin-top: 0;
-
-        }
-
-
 
         /* 通用按钮样式 */
-
         button {
-
+            flex: 1; /* 让按钮平分可用空间 */
             padding: 8px 0;
-
             background: white;
-
             color: #4b4b48;
-
             border: 1px solid #4b4b48;
-
             border-radius: 20px;
-
             cursor: pointer;
-
             box-sizing: border-box;
-
             text-align: center;
-
+            font-size: 14px;
+            white-space: nowrap; /* 防止按钮文字换行 */
         }
-
         
-
         button:hover {
-
             background: #f5f5f5;
-
         }
 
-        
-
-        /* 针对不同排按钮的宽度设置 */
-
-        .quick-time-btns button {
-
-            width: 70px;
-
+        /* 窄屏适配：如果宽度真的非常小（比如侧边栏） */
+        @media (max-width: 400px) {
+            .pomodoro-section {
+                gap: 10px;
+            }
+            #timer {
+                font-size: 48px;
+            }
         }
-
-        
-
-        .control-btns button {
-
-            width: 112px; /* 加宽暂停和停止按钮 */
-
-        }
-
     </style>
-
 </head>
-
 <body>
-
-    <div class="separator"></div>
-
-
-
     <div class="container">
-
         <div class="pomodoro-section">
-
             <div id="timer">00:00</div>
-
             <div class="buttons-container">
-
                 <div class="quick-time-btns">
-
                     <button onclick="setTime(25)">25min</button>
-
                     <button onclick="setTime(5)">5min</button>
-
                     <button onclick="setTime(15)">15min</button>
-
                 </div>
-
                 <div class="control-btns">
-
                     <button id="pauseBtn" onclick="togglePause()">暂停</button>
-
                     <button onclick="stopTimer()">停止</button>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
 
-
-
     <script>
-
+        // 逻辑部分保持不变
         let timeLeft = 0;
-
         let timerId = null;
-
         let isPaused = false;
-
         const audio = new Audio('https://img.tukuppt.com/newpreview_music/09/00/55/5c89339401f8a46437.mp3');
 
-
-
         function updateDisplay(seconds) {
-
             const minutes = Math.floor(seconds / 60);
-
             const remainingSeconds = seconds % 60;
-
             document.getElementById('timer').textContent = 
-
                 `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
-
         }
-
-
 
         function setTime(minutes) {
-
             timeLeft = minutes * 60;
-
             updateDisplay(timeLeft);
-
             startTimer();
-
         }
-
-
 
         function startTimer() {
-
             if (timerId) clearInterval(timerId);
-
             isPaused = false;
-
             document.getElementById('pauseBtn').textContent = '暂停';
-
             
-
             timerId = setInterval(() => {
-
                 if (!isPaused) {
-
                     timeLeft--;
-
                     updateDisplay(timeLeft);
-
                     
-
                     if (timeLeft <= 0) {
-
                         clearInterval(timerId);
-
                         audio.loop = true;
-
                         audio.play();
-
                     }
-
                 }
-
             }, 1000);
-
         }
-
-
 
         function togglePause() {
-
             isPaused = !isPaused;
-
             document.getElementById('pauseBtn').textContent = isPaused ? '继续' : '暂停';
-
         }
-
-
 
         function stopTimer() {
-
             clearInterval(timerId);
-
             timeLeft = 0;
-
             updateDisplay(0);
-
             audio.pause();
-
             audio.currentTime = 0;
-
         }
-
     </script>
-
 </body>
-
 </html>
