@@ -16,10 +16,8 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    /* 最外层虚线容器 */
+    /* 容器：已剔除虚线边框 */
     .widget-container {
-        border: 2px dashed #cccccc;
-        border-radius: 8px;
         padding: 20px 24px;
         width: 100%;
         max-width: 450px;
@@ -46,8 +44,8 @@
         flex-grow: 1;
         height: 22px;
         border: 2px solid #4f4f4f;
-        border-radius: 12px; /* 胶囊圆角 */
-        padding: 2px; /* 留出内外层间隙，还原截图细节 */
+        border-radius: 12px;
+        padding: 2px; 
         box-sizing: border-box;
         display: flex;
     }
@@ -56,9 +54,9 @@
     .progress-fill {
         height: 100%;
         background-color: #4f4f4f;
-        border-radius: 8px; /* 内部胶囊圆角 */
-        width: 0%; /* 初始设为0，由JS动态接管 */
-        transition: width 1s ease-in-out; 
+        border-radius: 8px; 
+        width: 0%; 
+        transition: width 1s linear; /* 改为线性过渡，匹配时间流逝的客观规律 */
     }
 
     /* 右侧百分比文本 */
@@ -66,7 +64,7 @@
         margin: 0;
         font-size: 15px;
         color: #4f4f4f;
-        min-width: 80px; /* 固定最小宽度，保证多行文字左对齐 */
+        min-width: 80px; 
     }
 </style>
 </head>
@@ -106,49 +104,56 @@
 
 <script>
     // ==========================================
-    // 核心算法：基于当前时间的百分比推演
+    // 核心算法：时间戳差值比例推演
     // ==========================================
     function updateTimeProgress() {
         const now = new Date();
-        
-        // 1. Day 进度计算 (过去的小时占比)
-        const dayProgress = (now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600) / 24;
-        
-        // 2. Week 进度计算 (前提假设：周一为一周起点)
-        // JavaScript 默认周日为 0，需转化为 周一=0, 周日=6
-        const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; 
-        const weekProgress = (dayOfWeek + dayProgress) / 7;
+        const nowMs = now.getTime(); // 获取当前绝对毫秒级时间戳
 
-        // 3. Month 进度计算
-        // 利用下个月的第0天获取本月总天数
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const monthProgress = (now.getDate() - 1 + dayProgress) / daysInMonth;
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const date = now.getDate();
 
-        // 4. Year 进度计算
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const isLeapYear = (now.getFullYear() % 4 === 0 && now.getFullYear() % 100 !== 0) || (now.getFullYear() % 400 === 0);
-        const daysInYear = isLeapYear ? 366 : 365;
-        // 转化为天数差
-        const pastDaysOfYear = (now - startOfYear) / (1000 * 60 * 60 * 24);
-        const yearProgress = pastDaysOfYear / daysInYear;
+        // 1. Day 进度
+        const startOfDay = new Date(year, month, date).getTime();
+        const dayTotalMs = 24 * 60 * 60 * 1000;
+        const dayProgress = (nowMs - startOfDay) / dayTotalMs;
+
+        // 2. Week 进度 (前提假设：周一为一周起点)
+        const dayOfWeek = now.getDay();
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 周日转为6，其他减1
+        const startOfWeek = new Date(year, month, date - diffToMonday).getTime();
+        const weekTotalMs = 7 * 24 * 60 * 60 * 1000;
+        const weekProgress = (nowMs - startOfWeek) / weekTotalMs;
+
+        // 3. Month 进度
+        const startOfMonth = new Date(year, month, 1).getTime();
+        const startOfNextMonth = new Date(year, month + 1, 1).getTime();
+        const monthProgress = (nowMs - startOfMonth) / (startOfNextMonth - startOfMonth);
+
+        // 4. Year 进度
+        const startOfYear = new Date(year, 0, 1).getTime();
+        const startOfNextYear = new Date(year + 1, 0, 1).getTime();
+        const yearProgress = (nowMs - startOfYear) / (startOfNextYear - startOfYear);
 
         // ==========================================
         // DOM 注入与视图更新
         // ==========================================
         const dataMap = [
             { id: 'year', percent: Math.floor(yearProgress * 100), label: 'Year' },
-            { id: 'month', Math.floor(monthProgress * 100), label: 'Month' },
+            { id: 'month', percent: Math.floor(monthProgress * 100), label: 'Month' },
             { id: 'week', percent: Math.floor(weekProgress * 100), label: 'Week' },
             { id: 'day', percent: Math.floor(dayProgress * 100), label: 'Day' }
         ];
 
         dataMap.forEach(item => {
+            // UI宽度和数值均基于严格的数学推演结果
             document.getElementById(`fill-${item.id}`).style.width = `${item.percent}%`;
             document.getElementById(`text-${item.id}`).innerText = `${item.label}: ${item.percent}%`;
         });
     }
 
-    // 初始化并设定每秒执行一次以保证极高精度
+    // 初始化并设定每秒计算一次，保障随时间推移的自适应刷新
     updateTimeProgress();
     setInterval(updateTimeProgress, 1000);
 </script>
