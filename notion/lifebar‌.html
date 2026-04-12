@@ -16,11 +16,10 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    /* 容器：已剔除虚线边框 */
+    /* 容器：已删除 max-width，使其能够 100% 贴合父级插件空间 */
     .widget-container {
         padding: 20px 24px;
         width: 100%;
-        max-width: 450px;
         box-sizing: border-box;
     }
 
@@ -39,7 +38,7 @@
         gap: 16px;
     }
 
-    /* 进度条外框：胶囊状带内边距 */
+    /* 进度条外框：通过 flex-grow: 1 吸收所有剩余空间，实现自适应伸缩 */
     .progress-outline {
         flex-grow: 1;
         height: 22px;
@@ -56,10 +55,10 @@
         background-color: #4f4f4f;
         border-radius: 8px; 
         width: 0%; 
-        transition: width 1s linear; /* 改为线性过渡，匹配时间流逝的客观规律 */
+        transition: width 1s linear; 
     }
 
-    /* 右侧百分比文本 */
+    /* 右侧百分比文本：定宽防止拉伸或挤压 */
     .progress-text {
         margin: 0;
         font-size: 15px;
@@ -108,7 +107,7 @@
     // ==========================================
     function updateTimeProgress() {
         const now = new Date();
-        const nowMs = now.getTime(); // 获取当前绝对毫秒级时间戳
+        const nowMs = now.getTime(); 
 
         const year = now.getFullYear();
         const month = now.getMonth();
@@ -119,9 +118,9 @@
         const dayTotalMs = 24 * 60 * 60 * 1000;
         const dayProgress = (nowMs - startOfDay) / dayTotalMs;
 
-        // 2. Week 进度 (前提假设：周一为一周起点)
+        // 2. Week 进度 (周一为一周起点)
         const dayOfWeek = now.getDay();
-        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 周日转为6，其他减1
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
         const startOfWeek = new Date(year, month, date - diffToMonday).getTime();
         const weekTotalMs = 7 * 24 * 60 * 60 * 1000;
         const weekProgress = (nowMs - startOfWeek) / weekTotalMs;
@@ -147,13 +146,11 @@
         ];
 
         dataMap.forEach(item => {
-            // UI宽度和数值均基于严格的数学推演结果
             document.getElementById(`fill-${item.id}`).style.width = `${item.percent}%`;
             document.getElementById(`text-${item.id}`).innerText = `${item.label}: ${item.percent}%`;
         });
     }
 
-    // 初始化并设定每秒计算一次，保障随时间推移的自适应刷新
     updateTimeProgress();
     setInterval(updateTimeProgress, 1000);
 </script>
