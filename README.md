@@ -25,7 +25,7 @@
   https://listtwind.github.io/myallinone/notion/holiday.html
   ```
 
-  ### 节假日倒计时：
+  ### 人生进度条：
   ```text
   https://listtwind.github.io/myallinone/notion/lifebary.html
   ```
