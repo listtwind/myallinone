@@ -27,6 +27,6 @@
 
   ### 人生进度条：
   ```text
-  https://listtwind.github.io/myallinone/notion/lifebary.html
+  https://listtwind.github.io/myallinone/notion/lifebar.html
   ```
 </details>
