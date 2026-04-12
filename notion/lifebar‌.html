@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Progress Widget</title>
+<style>
+    /* 全局重置与居中 */
+    body {
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    /* 最外层虚线容器 */
+    .widget-container {
+        border: 2px dashed #cccccc;
+        border-radius: 8px;
+        padding: 20px 24px;
+        width: 100%;
+        max-width: 450px;
+        box-sizing: border-box;
+    }
+
+    /* 进度条组 */
+    .progress-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px; 
+    }
+    
+    /* 单行布局：左侧进度条，右侧文字 */
+    .progress-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    /* 进度条外框：胶囊状带内边距 */
+    .progress-outline {
+        flex-grow: 1;
+        height: 22px;
+        border: 2px solid #4f4f4f;
+        border-radius: 12px; /* 胶囊圆角 */
+        padding: 2px; /* 留出内外层间隙，还原截图细节 */
+        box-sizing: border-box;
+        display: flex;
+    }
+
+    /* 进度条填充物 */
+    .progress-fill {
+        height: 100%;
+        background-color: #4f4f4f;
+        border-radius: 8px; /* 内部胶囊圆角 */
+        width: 0%; /* 初始设为0，由JS动态接管 */
+        transition: width 1s ease-in-out; 
+    }
+
+    /* 右侧百分比文本 */
+    .progress-text {
+        margin: 0;
+        font-size: 15px;
+        color: #4f4f4f;
+        min-width: 80px; /* 固定最小宽度，保证多行文字左对齐 */
+    }
+</style>
+</head>
+<body>
+
+<div class="widget-container">
+    <div class="progress-group">
+        <div class="progress-item">
+            <div class="progress-outline">
+                <div class="progress-fill" id="fill-year"></div>
+            </div>
+            <p class="progress-text" id="text-year">Year: 0%</p>
+        </div>
+
+        <div class="progress-item">
+            <div class="progress-outline">
+                <div class="progress-fill" id="fill-month"></div>
+            </div>
+            <p class="progress-text" id="text-month">Month: 0%</p>
+        </div>
+
+        <div class="progress-item">
+            <div class="progress-outline">
+                <div class="progress-fill" id="fill-week"></div>
+            </div>
+            <p class="progress-text" id="text-week">Week: 0%</p>
+        </div>
+
+        <div class="progress-item">
+            <div class="progress-outline">
+                <div class="progress-fill" id="fill-day"></div>
+            </div>
+            <p class="progress-text" id="text-day">Day: 0%</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 核心算法：基于当前时间的百分比推演
+    // ==========================================
+    function updateTimeProgress() {
+        const now = new Date();
+        
+        // 1. Day 进度计算 (过去的小时占比)
+        const dayProgress = (now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600) / 24;
+        
+        // 2. Week 进度计算 (前提假设：周一为一周起点)
+        // JavaScript 默认周日为 0，需转化为 周一=0, 周日=6
+        const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; 
+        const weekProgress = (dayOfWeek + dayProgress) / 7;
+
+        // 3. Month 进度计算
+        // 利用下个月的第0天获取本月总天数
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const monthProgress = (now.getDate() - 1 + dayProgress) / daysInMonth;
+
+        // 4. Year 进度计算
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const isLeapYear = (now.getFullYear() % 4 === 0 && now.getFullYear() % 100 !== 0) || (now.getFullYear() % 400 === 0);
+        const daysInYear = isLeapYear ? 366 : 365;
+        // 转化为天数差
+        const pastDaysOfYear = (now - startOfYear) / (1000 * 60 * 60 * 24);
+        const yearProgress = pastDaysOfYear / daysInYear;
+
+        // ==========================================
+        // DOM 注入与视图更新
+        // ==========================================
+        const dataMap = [
+            { id: 'year', percent: Math.floor(yearProgress * 100), label: 'Year' },
+            { id: 'month', Math.floor(monthProgress * 100), label: 'Month' },
+            { id: 'week', percent: Math.floor(weekProgress * 100), label: 'Week' },
+            { id: 'day', percent: Math.floor(dayProgress * 100), label: 'Day' }
+        ];
+
+        dataMap.forEach(item => {
+            document.getElementById(`fill-${item.id}`).style.width = `${item.percent}%`;
+            document.getElementById(`text-${item.id}`).innerText = `${item.label}: ${item.percent}%`;
+        });
+    }
+
+    // 初始化并设定每秒执行一次以保证极高精度
+    updateTimeProgress();
+    setInterval(updateTimeProgress, 1000);
+</script>
+
+</body>
+</html>
