@@ -148,7 +148,7 @@
       font-weight: 600;
     }
 
-    /* 当天：数量为 0 时标记 */
+    /* 当天：数量为 0 时边框为 1px */
     .cell.is-today[data-count="0"] {
       outline: 1px solid var(--color-today-border);
       outline-offset: -1px;
@@ -156,13 +156,13 @@
       z-index: 2;
     }
 
-    /* 当天：有番茄数时自身不填充，边框与文字使用色阶颜色并加粗 */
+    /* 当天：有番茄数时边框为 1px，数字保持常规字重不加粗 */
     .cell.is-today.has-data {
       background-color: var(--color-empty) !important;
       border: 1px solid var(--current-level-color) !important;
-      line-height: calc(var(--cell-size) - 4px);
+      line-height: calc(var(--cell-size) - 2px);
       color: var(--current-level-color) !important;
-      font-weight: 800 !important;
+      font-weight: normal !important;
       outline: none;
       position: relative;
       z-index: 2;
