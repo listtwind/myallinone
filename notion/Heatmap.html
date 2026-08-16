@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>番茄热力图</title>
+  <style>
+    :root {
+      --cell-size: 20px;
+      --cell-gap: 4px;
+      --color-empty: #ebedf0;
+      --color-level-1: #ffcdd2;
+      --color-level-2: #ef9a9a;
+      --color-level-3: #e57373;
+      --color-level-4: #ef5350;
+      --color-level-5: #d32f2f;
+      --color-level-max: #b71c1c;
+      --color-today-border: #1a73e8; /* 当天描边颜色 */
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      padding: 30px;
+      background: #fafafa;
+      color: #333;
+    }
+
+    .heatmap-container {
+      display: inline-block;
+      background: #fff;
+      padding: 24px;
+      border-radius: 8px;
+      border: 1px solid #e1e4e8;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .year-select-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    select.year-select {
+      font-size: 14px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .heatmap-wrapper {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 月份标头栏 */
+    .months-header {
+      display: grid;
+      grid-template-columns: repeat(53, var(--cell-size));
+      gap: var(--cell-gap);
+      margin-left: 32px;
+      height: 18px;
+      font-size: 11px;
+      color: #767676;
+    }
+
+    .month-label {
+      grid-column-start: var(--col);
+      white-space: nowrap;
+    }
+
+    .main-grid {
+      display: flex;
+    }
+
+    /* 星期标头栏 */
+    .weekdays-header {
+      display: grid;
+      grid-template-rows: repeat(7, var(--cell-size));
+      gap: var(--cell-gap);
+      margin-right: 8px;
+      font-size: 10px;
+      color: #767676;
+      line-height: var(--cell-size);
+      text-align: right;
+      width: 24px;
+      user-select: none;
+    }
+
+    /* 热力图网格 */
+    .days-grid {
+      display: grid;
+      grid-template-rows: repeat(7, var(--cell-size));
+      grid-auto-flow: column;
+      grid-auto-columns: var(--cell-size);
+      gap: var(--cell-gap);
+    }
+
+    .cell {
+      width: var(--cell-size);
+      height: var(--cell-size);
+      border-radius: 3px;
+      background-color: var(--color-empty);
+      font-size: 10px;
+      line-height: var(--cell-size);
+      text-align: center;
+      color: transparent;
+      cursor: pointer;
+      user-select: none;
+      box-sizing: border-box;
+      transition: transform 0.1s, background-color 0.15s;
+    }
+
+    .cell:hover {
+      outline: 1px solid #000;
+      transform: scale(1.15);
+      z-index: 10;
+    }
+
+    /* 当天描边标记 */
+    .cell.is-today {
+      outline: 2px solid var(--color-today-border);
+      outline-offset: -1px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .cell.has-data {
+      color: #fff;
+      font-weight: 500;
+    }
+
+    /* 色阶 */
+    .cell[data-count="0"] { background-color: var(--color-empty); color: transparent; }
+    .cell[data-count="1"] { background-color: var(--color-level-1); color: #880e4f; }
+    .cell[data-count="2"] { background-color: var(--color-level-2); color: #880e4f; }
+    .cell[data-count="3"] { background-color: var(--color-level-3); color: #fff; }
+    .cell[data-count="4"] { background-color: var(--color-level-4); color: #fff; }
+    .cell[data-count="5"] { background-color: var(--color-level-5); color: #fff; }
+    .cell[data-level="max"] { background-color: var(--color-level-max); color: #fff; }
+  </style>
+</head>
+<body>
+
+<div class="heatmap-container">
+  <div class="header-bar">
+    <div class="year-select-wrapper">
+      <select id="yearSelect" class="year-select"></select>
+      <span style="font-size: 14px; font-weight: 600;">番茄钟记录</span>
+    </div>
+    <div style="font-size: 12px; color: #666;">左键 +1 | 右键 -1</div>
+  </div>
+
+  <div class="heatmap-wrapper">
+    <div class="months-header" id="monthsHeader"></div>
+    <div class="main-grid">
+      <div class="weekdays-header">
+        <div>一</div>
+        <div>二</div>
+        <div>三</div>
+        <div>四</div>
+        <div>五</div>
+        <div>六</div>
+        <div>日</div>
+      </div>
+      <div class="days-grid" id="daysGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 获取本地日期标准格式 (YYYY-MM-DD)
+  function formatLocalDate(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  const today = new Date();
+  const todayStr = formatLocalDate(today);
+  let selectedYear = today.getFullYear();
+
+  const yearSelect = document.getElementById('yearSelect');
+  const monthsHeader = document.getElementById('monthsHeader');
+  const daysGrid = document.getElementById('daysGrid');
+  const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+
+  // 初始化年份下拉列表（支持当前年前后各2年）
+  function initYearSelect() {
+    yearSelect.innerHTML = '';
+    for (let y = selectedYear - 2; y <= selectedYear + 2; y++) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.innerText = `${y} 年`;
+      if (y === selectedYear) opt.selected = true;
+      yearSelect.appendChild(opt);
+    }
+
+    yearSelect.addEventListener('change', (e) => {
+      selectedYear = parseInt(e.target.value, 10);
+      renderHeatmap();
+    });
+  }
+
+  function renderHeatmap() {
+    daysGrid.innerHTML = '';
+    monthsHeader.innerHTML = '';
+
+    const storageKey = `pomodoro_data_${selectedYear}`;
+    let records = JSON.parse(localStorage.getItem(storageKey)) || {};
+
+    const startDate = new Date(selectedYear, 0, 1);
+    const endDate = new Date(selectedYear, 11, 31);
+    
+    // 计算 1 月 1 日是星期几 (周一=0, 周日=6)
+    const startDayOfWeek = (startDate.getDay() + 6) % 7;
+
+    // 填充第一周前的空白格
+    for (let i = 0; i < startDayOfWeek; i++) {
+      const placeholder = document.createElement('div');
+      placeholder.style.visibility = 'hidden';
+      daysGrid.appendChild(placeholder);
+    }
+
+    let currentDate = new Date(startDate);
+    let currentMonth = -1;
+    let dayCounter = startDayOfWeek;
+
+    while (currentDate <= endDate) {
+      const dateStr = formatLocalDate(currentDate);
+      const count = records[dateStr] || 0;
+      const month = currentDate.getMonth();
+
+      // 月份跨度对齐
+      const weekCol = Math.floor(dayCounter / 7) + 1;
+      if (month !== currentMonth) {
+        currentMonth = month;
+        const monthLabel = document.createElement('div');
+        monthLabel.className = 'month-label';
+        monthLabel.style.setProperty('--col', weekCol);
+        monthLabel.innerText = monthNames[month];
+        monthsHeader.appendChild(monthLabel);
+      }
+
+      // 生成单元格
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.date = dateStr;
+
+      // 标注“当天”
+      if (dateStr === todayStr) {
+        cell.classList.add('is-today');
+      }
+
+      updateCellVisual(cell, count);
+
+      // 左键递增
+      cell.addEventListener('click', () => {
+        records[dateStr] = (records[dateStr] || 0) + 1;
+        localStorage.setItem(storageKey, JSON.stringify(records));
+        updateCellVisual(cell, records[dateStr]);
+      });
+
+      // 右键递减
+      cell.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if ((records[dateStr] || 0) > 0) {
+          records[dateStr] -= 1;
+          if (records[dateStr] === 0) delete records[dateStr];
+          localStorage.setItem(storageKey, JSON.stringify(records));
+          updateCellVisual(cell, records[dateStr] || 0);
+        }
+      });
+
+      daysGrid.appendChild(cell);
+
+      currentDate.setDate(currentDate.getDate() + 1);
+      dayCounter++;
+    }
+  }
+
+  function updateCellVisual(cell, count) {
+    cell.dataset.count = count;
+    cell.innerText = count > 0 ? count : '';
+    cell.title = `${cell.dataset.date}: ${count} 个番茄`;
+
+    if (count >= 6) {
+      cell.dataset.level = 'max';
+    } else {
+      delete cell.dataset.level;
+    }
+
+    if (count > 0) {
+      cell.classList.add('has-data');
+    } else {
+      cell.classList.remove('has-data');
+    }
+  }
+
+  initYearSelect();
+  renderHeatmap();
+</script>
+
+</body>
+</html>
