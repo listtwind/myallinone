@@ -6,9 +6,9 @@
   <style>
     :root {
       --cell-size: 14px;
-      --cell-gap: 3px;
-      --color-empty: #f1f3f6;
-      --color-empty-border: #e2e6ea;
+      --cell-gap: 5px;
+      --color-empty: #f1f5f9;
+      --color-empty-border: #e4e9ed;
       --color-level-1: #fca5a5;
       --color-level-2: #f87171;
       --color-level-3: #ef4444;
@@ -24,6 +24,8 @@
       margin: 0;
       background: transparent;
       color: #1e293b;
+      display: flex;
+      justify-content: center;
     }
 
     .heatmap-container {
@@ -49,23 +51,12 @@
       letter-spacing: -0.02em;
     }
 
-    .year-control {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    select.year-select {
-      font-size: 13px;
+    .year-display {
+      font-size: 14px;
       font-style: italic;
       color: #64748b;
       font-weight: 500;
-      padding: 2px 6px;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      background: transparent;
-      cursor: pointer;
-      outline: none;
+      user-select: none;
     }
 
     .heatmap-wrapper {
@@ -73,12 +64,13 @@
       flex-direction: column;
     }
 
-    /* 月份标头栏 */
+    /* 月份标头栏：增加 3px 底部间距 */
     .months-header {
       display: grid;
       grid-template-columns: repeat(53, var(--cell-size));
       gap: var(--cell-gap);
       margin-left: 28px;
+      margin-bottom: 3px;
       height: 18px;
       font-size: 11px;
       color: #64748b;
@@ -139,29 +131,42 @@
       z-index: 10;
     }
 
-    /* 当天描边标记 */
-    .cell.is-today {
-      outline: 1px solid var(--color-today-border);
-      outline-offset: -1px;
+    /* 色阶变量映射 */
+    .cell[data-count="0"] { --current-level-color: transparent; }
+    .cell[data-count="1"] { --current-level-color: var(--color-level-1); }
+    .cell[data-count="2"] { --current-level-color: var(--color-level-2); }
+    .cell[data-count="3"] { --current-level-color: var(--color-level-3); }
+    .cell[data-count="4"] { --current-level-color: var(--color-level-4); }
+    .cell[data-count="5"] { --current-level-color: var(--color-level-5); }
+    .cell[data-level="max"] { --current-level-color: var(--color-level-max); }
+
+    /* 普通方块数据填充 */
+    .cell.has-data {
+      background-color: var(--current-level-color);
+      border: 1px solid var(--current-level-color);
+      color: #ffffff !important;
+      font-weight: 600;
+    }
+
+    /* 当天：数量为 0 时边框增至 2px */
+    .cell.is-today[data-count="0"] {
+      outline: 2px solid var(--color-today-border);
+      outline-offset: -2px;
       position: relative;
       z-index: 2;
     }
 
-    /* 包含数值时文字全部强制为纯白 */
-    .cell.has-data {
-      color: #ffffff !important;
-      font-weight: 600;
-      border: none;
+    /* 当天：有番茄数时边框增至 2px，内里文字加粗 */
+    .cell.is-today.has-data {
+      background-color: var(--color-empty) !important;
+      border: 1px solid var(--current-level-color) !important;
+      line-height: calc(var(--cell-size) - 4px);
+      color: var(--current-level-color) !important;
+      font-weight: 600 !important;
+      outline: none;
+      position: relative;
+      z-index: 2;
     }
-
-    /* 色阶分配 */
-    .cell[data-count="0"] { background-color: var(--color-empty); border: 1px solid var(--color-empty-border); color: transparent; }
-    .cell[data-count="1"] { background-color: var(--color-level-1); }
-    .cell[data-count="2"] { background-color: var(--color-level-2); }
-    .cell[data-count="3"] { background-color: var(--color-level-3); }
-    .cell[data-count="4"] { background-color: var(--color-level-4); }
-    .cell[data-count="5"] { background-color: var(--color-level-5); }
-    .cell[data-level="max"] { background-color: var(--color-level-max); }
 
     /* 右下角统计栏 */
     .footer-bar {
@@ -185,9 +190,7 @@
 <div class="heatmap-container">
   <div class="header-bar">
     <div class="main-title">番茄钟数量</div>
-    <div class="year-control">
-      <select id="yearSelect" class="year-select"></select>
-    </div>
+    <div class="year-display" id="yearDisplay"></div>
   </div>
 
   <div class="heatmap-wrapper">
@@ -221,29 +224,14 @@
 
   const today = new Date();
   const todayStr = formatLocalDate(today);
-  let selectedYear = today.getFullYear();
+  const currentYear = today.getFullYear();
 
-  const yearSelect = document.getElementById('yearSelect');
+  document.getElementById('yearDisplay').innerText = currentYear;
+
   const monthsHeader = document.getElementById('monthsHeader');
   const daysGrid = document.getElementById('daysGrid');
   const totalCountEl = document.getElementById('totalCount');
   const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-
-  function initYearSelect() {
-    yearSelect.innerHTML = '';
-    for (let y = selectedYear - 2; y <= selectedYear + 2; y++) {
-      const opt = document.createElement('option');
-      opt.value = y;
-      opt.innerText = `${y}`;
-      if (y === selectedYear) opt.selected = true;
-      yearSelect.appendChild(opt);
-    }
-
-    yearSelect.addEventListener('change', (e) => {
-      selectedYear = parseInt(e.target.value, 10);
-      renderHeatmap();
-    });
-  }
 
   function updateTotal(records) {
     const sum = Object.values(records).reduce((acc, cur) => acc + (Number(cur) || 0), 0);
@@ -254,13 +242,13 @@
     daysGrid.innerHTML = '';
     monthsHeader.innerHTML = '';
 
-    const storageKey = `pomodoro_data_${selectedYear}`;
+    const storageKey = `pomodoro_data_${currentYear}`;
     let records = JSON.parse(localStorage.getItem(storageKey)) || {};
 
     updateTotal(records);
 
-    const startDate = new Date(selectedYear, 0, 1);
-    const endDate = new Date(selectedYear, 11, 31);
+    const startDate = new Date(currentYear, 0, 1);
+    const endDate = new Date(currentYear, 11, 31);
     const startDayOfWeek = (startDate.getDay() + 6) % 7;
 
     for (let i = 0; i < startDayOfWeek; i++) {
@@ -341,7 +329,6 @@
     }
   }
 
-  initYearSelect();
   renderHeatmap();
 </script>
 
