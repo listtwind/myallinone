@@ -24,14 +24,15 @@
         }
 
         .pomodoro-section {
-    display: flex;
-    width: 100%;
-    max-width: 760px; /* 留出一点边距 */
-    align-items: center;
-    justify-content: center;
-    gap: clamp(8px, 4vw, 20px); /* 允许间距随宽度缩小，最小保留8px，最大20px */
-    flex-wrap: nowrap; /* 核心修改：彻底禁止换行，强制左右排布 */
-}
+            display: flex;
+            width: 100%;
+            max-width: 760px; /* 留出一点边距 */
+            align-items: center;
+            justify-content: center;
+            /* 间距增加20px：原8px~20px调整为28px~40px */
+            gap: clamp(28px, calc(4vw + 20px), 40px);
+            flex-wrap: nowrap; /* 核心修改：彻底禁止换行，强制左右排布 */
+        }
 
         #timer {
             font-size: clamp(48px, 15vw, 72px); /* 响应式字体大小 */
@@ -79,10 +80,10 @@
             background: #f5f5f5;
         }
 
-        /* 窄屏适配：如果宽度真的非常小（比如侧边栏） */
+        /* 窄屏适配：如果宽度非常小 */
         @media (max-width: 400px) {
             .pomodoro-section {
-                gap: 10px;
+                gap: 30px; /* 原10px增加20px至30px */
             }
             #timer {
                 font-size: 48px;
@@ -109,7 +110,6 @@
     </div>
 
     <script>
-        // 逻辑部分保持不变
         let timeLeft = 0;
         let timerId = null;
         let isPaused = false;
