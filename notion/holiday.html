@@ -5,24 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>倒计时小组件</title>
 <style>
-    /* 新增：使插件在网页空间中整体居中的样式 */
     body {
         margin: 0;
         display: flex;
         justify-content: center;
         align-items: center;
         min-height: 100vh;
-        background-color: #ffffff; /* 可根据需要修改背景色 */
+        background-color: #ffffff;
     }
 
-    /* 容器样式：控制组件内部间距 */
     .countdown-container {
         font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
         display: inline-block;
         padding: 10px;
     }
     
-    /* 标题样式：控制第一行文字 */
     .countdown-title {
         font-size: 20px;
         font-weight: bold;
@@ -31,7 +28,6 @@
         letter-spacing: 1px;
     }
     
-    /* 倒计时数字样式：控制第二行文字 */
     .countdown-timer {
         font-size: 16px;
         color: #555555;
@@ -42,7 +38,7 @@
 
 <div class="countdown-container">
     <div class="countdown-title">
-        距离「<span id="holiday-name">中秋</span>」还有：
+        距离「<span id="holiday-name">加载中</span>」还有：
     </div>
     <div class="countdown-timer" id="timer-display">
         加载中...
@@ -51,34 +47,54 @@
 
 <script>
     // ==========================================
-    // 配置区域
-    // ==========================================
-    
-    // 【修改此处】设定目标节假日的日期和时间
+    // 配置区域：按时间先后顺序配置节假日
     // 格式："YYYY/MM/DD HH:mm:ss"
-    const targetDateStr = "2026/09/25 00:00:00"; 
-    
+    // ==========================================
+    const holidayList = [
+        { name: "元旦",   date: "2026/01/01 00:00:00" },
+        { name: "春节",   date: "2026/02/17 00:00:00" },
+        { name: "清明",   date: "2026/04/05 00:00:00" },
+        { name: "五一", date: "2026/05/01 00:00:00" },
+        { name: "端午",   date: "2026/06/19 00:00:00" },
+        { name: "中秋",   date: "2026/09/25 00:00:00" },
+        { name: "国庆",   date: "2026/10/01 00:00:00" },
+        // 跨年顺延节假日
+        { name: "元旦",   date: "2027/01/01 00:00:00" },
+        { name: "春节",   date: "2027/02/06 00:00:00" }
+    ];
+
     // ==========================================
     // 核心逻辑区域
     // ==========================================
-    const targetDate = new Date(targetDateStr).getTime();
-    const timerDisplay = document.getElementById('timer-display');
+    const holidayNameEl = document.getElementById('holiday-name');
+    const timerDisplayEl = document.getElementById('timer-display');
 
     function updateTimer() {
         const now = new Date().getTime();
-        const distance = targetDate - now;
+        
+        // 查找下一个未过期的节假日
+        const nextHoliday = holidayList.find(item => {
+            return new Date(item.date).getTime() > now;
+        });
 
-        if (distance < 0) {
-            timerDisplay.innerHTML = "已到达或已过期";
+        // 边界兜底保护（仅在列表全部耗尽时触发）
+        if (!nextHoliday) {
+            holidayNameEl.textContent = "待配置";
+            timerDisplayEl.textContent = "请更新节假日列表";
             return;
         }
+
+        holidayNameEl.textContent = nextHoliday.name;
+        
+        const targetDate = new Date(nextHoliday.date).getTime();
+        const distance = targetDate - now;
 
         const days = Math.floor(distance / (1000 * 60 * 60 * 24));
         const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-        timerDisplay.innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        timerDisplayEl.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
     }
 
     updateTimer();
