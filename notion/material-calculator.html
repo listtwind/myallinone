@@ -42,14 +42,9 @@
 </head>
 <body class="text-slate-800 dark:text-slate-200">
   <div class="w-full flex flex-col gap-2">
-    <!-- 顶部标题行：纯文本，无边框分隔线，右侧微型同步状态灯 -->
-    <header class="flex items-center justify-between px-0.5 pt-0.5 pb-0">
+    <!-- 顶部标题行：纯文本，无边框分隔线 -->
+    <header class="px-0.5 pt-0.5 pb-0">
       <h1 class="text-xs font-bold text-slate-800 dark:text-slate-100 tracking-tight">天赋书计算器</h1>
-      <span 
-        id="sync-indicator" 
-        class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 transition-colors" 
-        title="本地保存 (未配置云同步)"
-      ></span>
     </header>
 
     <!-- 角色列表容器 -->
@@ -118,6 +113,7 @@
     const syncIndicator = document.getElementById('sync-indicator');
 
     function setSyncStatus(status) {
+      if (!syncIndicator) return;
       if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId) {
         syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600";
         syncIndicator.title = "本地保存 (未配置云同步)";
