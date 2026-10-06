@@ -7,31 +7,29 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
+      darkMode: 'media',
       theme: {
         extend: {
           colors: {
-            notionDark: '#191919',
-            notionCardDark: '#202020',
-            notionBorderDark: '#2f343b',
             genshinBrown: '#c69468',
           }
         }
       }
-    }
+    };
   </script>
   <style>
-    /* 严格锁定视口宽度为 180px */
     html, body {
       width: 180px;
       max-width: 180px;
       min-width: 180px;
       margin: 0 auto;
+      padding: 4px;
       box-sizing: border-box;
       overflow-x: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background-color: transparent;
+      user-select: none;
     }
-    /* 隐藏数字输入框默认的微调箭头以节省紧凑空间 */
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
       -webkit-appearance: none;
@@ -42,346 +40,328 @@
     }
   </style>
 </head>
-<body class="p-2 bg-transparent text-[#37352f] dark:text-[#d4d4d4] select-none transition-colors duration-200">
+<body class="text-slate-800 dark:text-slate-200">
+  <div class="w-full flex flex-col gap-2">
+    <!-- 顶部标题行：纯文本，无边框分隔线，右侧微型同步状态灯 -->
+    <header class="flex items-center justify-between px-0.5 pt-0.5 pb-0">
+      <h1 class="text-xs font-bold text-slate-800 dark:text-slate-100 tracking-tight">天赋书计算器</h1>
+      <span 
+        id="sync-indicator" 
+        class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 transition-colors" 
+        title="本地保存 (未配置云同步)"
+      ></span>
+    </header>
 
-  <!-- 顶部标题栏：纯文本无任何图标与多余元素 -->
-  <header class="pb-1.5 mb-2 border-b border-[#e9e9e7] dark:border-[#2f343b] flex items-center">
-    <h1 class="text-xs font-semibold tracking-tight text-gray-800 dark:text-gray-200">天赋书计算器</h1>
-  </header>
+    <!-- 角色列表容器 -->
+    <div id="character-list" class="flex flex-col gap-1.5"></div>
 
-  <!-- 角色卡片列表容器 -->
-  <div id="charactersList" class="flex flex-col gap-2"></div>
-
-  <!-- 添加新角色按钮 -->
-  <button 
-    id="addCharBtn"
-    type="button"
-    class="w-full mt-2 py-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 border border-dashed border-[#dcdad5] dark:border-[#383d46] hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-md transition flex items-center justify-center gap-1 active:scale-[0.98]"
-  >
-    <span>＋</span> 添加角色
-  </button>
+    <!-- 添加角色按钮 -->
+    <button 
+      id="add-btn" 
+      type="button"
+      class="w-full py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] rounded border border-slate-200 dark:border-slate-700 transition flex items-center justify-center gap-1"
+    >
+      <span class="text-xs leading-none">＋</span> 添加角色
+    </button>
+  </div>
 
   <script>
-    // 单技能各等级升级所需消耗数据表 (1~10级)
-    const LEVEL_COSTS = [
-      { brown: 0, silver: 0, gold: 0 },  // 1级
-      { brown: 3, silver: 0, gold: 0 },  // 2级
-      { brown: 0, silver: 2, gold: 0 },  // 3级
-      { brown: 0, silver: 4, gold: 0 },  // 4级
-      { brown: 0, silver: 6, gold: 0 },  // 5级
-      { brown: 0, silver: 9, gold: 0 },  // 6级
-      { brown: 0, silver: 0, gold: 4 },  // 7级
-      { brown: 0, silver: 0, gold: 6 },  // 8级
-      { brown: 0, silver: 0, gold: 12 }, // 9级
-      { brown: 0, silver: 0, gold: 16 }, // 10级
-    ];
+    // ================= 云同步配置 (JSONbin.io) =================
+    // 若需跨设备同步，请注册 jsonbin.io，填入 Bin ID 与 API Key，并将 enabled 设为 true
+    const JSONBIN_CONFIG = {
+      binId: "",        // 填入你的 Bin ID (例如: 65f1234abcd...)
+      apiKey: "",       // 填入你的 Master Key 或 Access Key
+      enabled: false    // 启用状态 (true / false)
+    };
+    const LOCAL_KEY = 'genshin_talent_calc_180px_data';
+    // ============================================================
 
-    // 计算单项技能升级至指定等级累计消耗
-    function getSkillTotal(targetLevel) {
-      let b = 0, s = 0, g = 0;
-      const lvl = Math.min(Math.max(parseInt(targetLevel, 10) || 1, 1), 10);
-      for (let i = 1; i < lvl; i++) {
-        b += LEVEL_COSTS[i].brown;
-        s += LEVEL_COSTS[i].silver;
-        g += LEVEL_COSTS[i].gold;
+    // 天赋升级各级消耗 (单技能累计)
+    const LEVEL_REQUIREMENTS = {
+      2: { brown: 3, silver: 0, gold: 0 },
+      3: { brown: 0, silver: 2, gold: 0 },
+      4: { brown: 0, silver: 4, gold: 0 },
+      5: { brown: 0, silver: 6, gold: 0 },
+      6: { brown: 0, silver: 9, gold: 0 },
+      7: { brown: 0, silver: 0, gold: 4 },
+      8: { brown: 0, silver: 0, gold: 6 },
+      9: { brown: 0, silver: 0, gold: 12 },
+      10: { brown: 0, silver: 0, gold: 16 }
+    };
+
+    function calculateSingleSkill(levelInput) {
+      const lvl = parseInt(levelInput, 10);
+      let brown = 0, silver = 0, gold = 0;
+      if (isNaN(lvl) || lvl <= 1) return { brown, silver, gold };
+      const target = Math.min(lvl, 10);
+      for (let i = 2; i <= target; i++) {
+        brown += LEVEL_REQUIREMENTS[i].brown;
+        silver += LEVEL_REQUIREMENTS[i].silver;
+        gold += LEVEL_REQUIREMENTS[i].gold;
       }
-      return { brown: b, silver: s, gold: g };
+      return { brown, silver, gold };
     }
 
-    // 计算角色 3 个技能的总累计消耗
-    function calculateCharacterTotal(char) {
-      const a = getSkillTotal(char.a);
-      const e = getSkillTotal(char.e);
-      const q = getSkillTotal(char.q);
+    function calculateTotalCost(t1, t2, t3) {
+      const s1 = calculateSingleSkill(t1);
+      const s2 = calculateSingleSkill(t2);
+      const s3 = calculateSingleSkill(t3);
       return {
-        brown: a.brown + e.brown + q.brown,
-        silver: a.silver + e.silver + q.silver,
-        gold: a.gold + e.gold + q.gold
+        gold: s1.gold + s2.gold + s3.gold,
+        silver: s1.silver + s2.silver + s3.silver,
+        brown: s1.brown + s2.brown + s3.brown
       };
     }
 
-    const STORAGE_KEY = 'genshin_talent_notion_widget_v2';
-    const SCHEDULE_OPTIONS = ['一/四', '二/五', '三/六'];
-    const charactersListEl = document.getElementById('charactersList');
     let characters = [];
+    let debounceTimer = null;
+    const syncIndicator = document.getElementById('sync-indicator');
 
-    // 从 localStorage 读取历史配置
-    function loadData() {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          characters = JSON.parse(saved);
-        }
-      } catch (err) {
-        characters = [];
+    function setSyncStatus(status) {
+      if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId) {
+        syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600";
+        syncIndicator.title = "本地保存 (未配置云同步)";
+        return;
+      }
+      if (status === 'syncing') {
+        syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse";
+        syncIndicator.title = "正在同步至云端...";
+      } else if (status === 'synced') {
+        syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
+        syncIndicator.title = "已同步到云端";
+      } else if (status === 'error') {
+        syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-rose-500";
+        syncIndicator.title = "云同步异常 (保存在本地)";
+      }
+    }
+
+    async function loadData() {
+      const local = localStorage.getItem(LOCAL_KEY);
+      if (local) {
+        try { characters = JSON.parse(local); } catch (e) { characters = []; }
       }
 
-      // 规范化开放日选项，确保仅存在 3 个合规值
-      if (Array.isArray(characters)) {
-        characters.forEach(char => {
-          if (!SCHEDULE_OPTIONS.includes(char.schedule)) {
-            char.schedule = SCHEDULE_OPTIONS[0];
+      if (!Array.isArray(characters) || characters.length === 0) {
+        characters = [{ id: 'c_' + Date.now(), name: '', days: '一/四', t1: '', t2: '', t3: '' }];
+      }
+
+      render();
+
+      if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.apiKey) {
+        setSyncStatus('offline');
+        return;
+      }
+
+      setSyncStatus('syncing');
+      try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
+          headers: {
+            'X-Master-Key': JSONBIN_CONFIG.apiKey,
+            'X-Access-Key': JSONBIN_CONFIG.apiKey
           }
         });
-      }
-
-      // 若首次加载或数据为空，提供一个默认空白卡片
-      if (!Array.isArray(characters) || characters.length === 0) {
-        characters = [
-          {
-            id: 'c_' + Date.now(),
-            name: '',
-            schedule: SCHEDULE_OPTIONS[0],
-            a: '',
-            e: '',
-            q: ''
-          }
-        ];
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        if (data.record && Array.isArray(data.record.characters)) {
+          characters = data.record.characters;
+          localStorage.setItem(LOCAL_KEY, JSON.stringify(characters));
+          render();
+        }
+        setSyncStatus('synced');
+      } catch (err) {
+        setSyncStatus('error');
       }
     }
 
     function saveData() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(characters));
-      } catch (err) {}
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(characters));
+
+      if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.apiKey) {
+        setSyncStatus('offline');
+        return;
+      }
+
+      setSyncStatus('syncing');
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Master-Key': JSONBIN_CONFIG.apiKey,
+              'X-Access-Key': JSONBIN_CONFIG.apiKey
+            },
+            body: JSON.stringify({ characters })
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          setSyncStatus('synced');
+        } catch (e) {
+          setSyncStatus('error');
+        }
+      }, 700);
     }
 
-    function escapeHtml(str) {
-      return (str || '').replace(/[&<>"']/g, function(m) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
-      });
+    function updateBadges(cardEl, char) {
+      const costs = calculateTotalCost(char.t1, char.t2, char.t3);
+      const goldSpan = cardEl.querySelector('.count-gold');
+      const silverSpan = cardEl.querySelector('.count-silver');
+      const brownSpan = cardEl.querySelector('.count-brown');
+      if (goldSpan) goldSpan.textContent = costs.gold;
+      if (silverSpan) silverSpan.textContent = costs.silver;
+      if (brownSpan) brownSpan.textContent = costs.brown;
     }
 
-    // 局部更新卡片结果数值（金左、银中、棕右）
-    function updateCardBadges(cardEl, char) {
-      const total = calculateCharacterTotal(char);
-      const goldEl = cardEl.querySelector('[data-type="gold"]');
-      const silverEl = cardEl.querySelector('[data-type="silver"]');
-      const brownEl = cardEl.querySelector('[data-type="brown"]');
-      if (goldEl) goldEl.textContent = total.gold;
-      if (silverEl) silverEl.textContent = total.silver;
-      if (brownEl) brownEl.textContent = total.brown;
-    }
+    function render() {
+      const container = document.getElementById('character-list');
+      container.innerHTML = '';
 
-    // 渲染所有角色卡片
-    function renderCards() {
-      charactersListEl.innerHTML = '';
-
-      characters.forEach((char) => {
-        const totals = calculateCharacterTotal(char);
+      characters.forEach((char, index) => {
         const card = document.createElement('div');
-        card.className = "p-1.5 rounded-lg bg-white dark:bg-[#202020] border border-[#e8e7e3] dark:border-[#2f343b] shadow-sm flex flex-col gap-1.5 transition-all";
-        card.dataset.id = char.id;
+        card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-1.5 flex flex-col gap-1.5 shadow-sm";
+        card.dataset.id = char.id || index;
 
-        // 生成开放时间下拉选项
-        const makeScheduleOptions = (cur) => {
-          return SCHEDULE_OPTIONS.map(day => 
-            `<option value="${day}" ${day === cur ? 'selected' : ''}>${day}</option>`
-          ).join('');
+        // 第一排：角色名 (默认空白) + 副本时间 (三选一) + 删除
+        const row1 = document.createElement('div');
+        row1.className = "flex items-center gap-1";
+
+        const nameInput = document.createElement('input');
+        nameInput.type = "text";
+        nameInput.placeholder = "角色名";
+        nameInput.value = char.name || '';
+        nameInput.className = "w-[68px] px-1 py-0.5 text-[11px] bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition";
+        nameInput.oninput = (e) => {
+          characters[index].name = e.target.value;
+          saveData();
         };
 
-        card.innerHTML = `
-          <!-- 第一排：角色名输入框、开放时间下拉菜单、删除按钮 -->
-          <div class="flex items-center gap-1 justify-between">
-            <input 
-              type="text" 
-              placeholder="角色名" 
-              value="${escapeHtml(char.name)}" 
-              data-field="name" 
-              class="w-[78px] px-1.5 py-0.5 text-xs font-medium rounded border border-[#e2e1dc] dark:border-[#383d46] bg-gray-50/70 dark:bg-[#161616] text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500 transition"
-            />
-            <select 
-              data-field="schedule" 
-              class="w-[66px] px-1 py-0.5 text-[10px] font-medium rounded border border-[#e2e1dc] dark:border-[#383d46] bg-gray-50/70 dark:bg-[#161616] text-gray-700 dark:text-gray-300 cursor-pointer focus:outline-none focus:border-blue-400 dark:focus:border-blue-500 transition"
-              title="天赋书副本开放日"
-            >
-              ${makeScheduleOptions(char.schedule)}
-            </select>
-            <button 
-              type="button" 
-              data-action="delete" 
-              class="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition text-xs font-bold leading-none"
-              title="删除此角色"
-            >×</button>
-          </div>
-
-          <!-- 第二排：3个纯数字等级输入框（无汉字标识） -->
-          <div class="grid grid-cols-3 gap-1">
-            <input 
-              type="number" 
-              min="1" 
-              max="10" 
-              placeholder="1"
-              value="${char.a || ''}" 
-              data-field="a" 
-              class="w-full py-0.5 text-center text-xs font-semibold rounded border border-[#e2e1dc] dark:border-[#383d46] bg-gray-50/70 dark:bg-[#161616] text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500 transition"
-            />
-            <input 
-              type="number" 
-              min="1" 
-              max="10" 
-              placeholder="1"
-              value="${char.e || ''}" 
-              data-field="e" 
-              class="w-full py-0.5 text-center text-xs font-semibold rounded border border-[#e2e1dc] dark:border-[#383d46] bg-gray-50/70 dark:bg-[#161616] text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500 transition"
-            />
-            <input 
-              type="number" 
-              min="1" 
-              max="10" 
-              placeholder="1"
-              value="${char.q || ''}" 
-              data-field="q" 
-              class="w-full py-0.5 text-center text-xs font-semibold rounded border border-[#e2e1dc] dark:border-[#383d46] bg-gray-50/70 dark:bg-[#161616] text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500 transition"
-            />
-          </div>
-
-          <!-- 第三排：天赋书计算结果展示（金左、银中、棕右；棕色使用指定色值 #c69468） -->
-          <div class="grid grid-cols-3 gap-1 pt-0.5 border-t border-gray-100 dark:border-gray-800/60">
-            <!-- 金色天赋书 -->
-            <div class="flex items-center justify-center gap-1 bg-amber-50 dark:bg-amber-950/20 py-0.5 px-0.5 rounded border border-amber-200/60 dark:border-amber-800/40" title="金色天赋书 (4星)">
-              <span class="w-[5px] h-[5px] rounded-full bg-amber-400 shrink-0"></span>
-              <span data-type="gold" class="text-xs font-bold text-amber-700 dark:text-amber-300 leading-none">${totals.gold}</span>
-            </div>
-
-            <!-- 银色天赋书 -->
-            <div class="flex items-center justify-center gap-1 bg-slate-100/90 dark:bg-slate-800/30 py-0.5 px-0.5 rounded border border-slate-200 dark:border-slate-700/50" title="银色天赋书 (3星)">
-              <span class="w-[5px] h-[5px] rounded-full bg-slate-400 shrink-0"></span>
-              <span data-type="silver" class="text-xs font-bold text-slate-700 dark:text-slate-300 leading-none">${totals.silver}</span>
-            </div>
-
-            <!-- 棕色天赋书：精准指定 #c69468 -->
-            <div class="flex items-center justify-center gap-1 py-0.5 px-0.5 rounded border leading-none" 
-                 style="background-color: rgba(198, 148, 104, 0.12); border-color: rgba(198, 148, 104, 0.35);" 
-                 title="棕色天赋书 (2星)">
-              <span class="w-[5px] h-[5px] rounded-full shrink-0" style="background-color: #c69468;"></span>
-              <span data-type="brown" class="text-xs font-bold leading-none" style="color: #9f6636;">${totals.brown}</span>
-            </div>
-          </div>
-        `;
-        charactersListEl.appendChild(card);
-      });
-    }
-
-    // 监听实时输入事件，就地更新数据避免打断光标
-    charactersListEl.addEventListener('input', (e) => {
-      const target = e.target;
-      const card = target.closest('[data-id]');
-      if (!card) return;
-
-      const id = card.dataset.id;
-      const field = target.dataset.field;
-      const char = characters.find(c => c.id === id);
-      if (!char) return;
-
-      if (field === 'name') {
-        char.name = target.value;
-        saveData();
-      } else if (['a', 'e', 'q'].includes(field)) {
-        if (target.value === '') {
-          char[field] = '';
+        const select = document.createElement('select');
+        select.className = "w-[64px] px-0.5 py-0.5 text-[10px] bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:border-slate-400 transition";
+        ['一/四', '二/五', '三/六'].forEach(day => {
+          const opt = document.createElement('option');
+          opt.value = day;
+          opt.textContent = day;
+          if ((char.days || '一/四') === day) opt.selected = true;
+          select.appendChild(opt);
+        });
+        select.onchange = (e) => {
+          characters[index].days = e.target.value;
           saveData();
-          updateCardBadges(card, char);
-        } else {
-          let val = parseInt(target.value, 10);
-          if (!isNaN(val)) {
-            if (val > 10) {
-              val = 10;
-              target.value = 10;
-            }
-            char[field] = val;
-            saveData();
-            updateCardBadges(card, char);
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.type = "button";
+        delBtn.innerHTML = "×";
+        delBtn.className = "ml-auto text-slate-400 hover:text-rose-500 active:scale-95 text-xs font-bold leading-none px-1 py-0.5 rounded transition";
+        delBtn.title = "删除此角色";
+        delBtn.onclick = () => {
+          characters.splice(index, 1);
+          if (characters.length === 0) {
+            characters.push({ id: 'c_' + Date.now(), name: '', days: '一/四', t1: '', t2: '', t3: '' });
           }
-        }
-      }
-    });
+          render();
+          saveData();
+        };
 
-    // 监听失焦/数值变更以校验合法性
-    charactersListEl.addEventListener('change', (e) => {
-      const target = e.target;
-      const card = target.closest('[data-id]');
-      if (!card) return;
+        row1.appendChild(nameInput);
+        row1.appendChild(select);
+        row1.appendChild(delBtn);
 
-      const id = card.dataset.id;
-      const field = target.dataset.field;
-      const char = characters.find(c => c.id === id);
-      if (!char) return;
+        // 第二排：三个纯数字输入框 (默认空白，无汉字)
+        const row2 = document.createElement('div');
+        row2.className = "grid grid-cols-3 gap-1";
 
-      if (field === 'schedule') {
-        char.schedule = target.value;
-        saveData();
-      } else if (['a', 'e', 'q'].includes(field)) {
-        if (target.value === '') {
-          char[field] = '';
-        } else {
-          let val = parseInt(target.value, 10);
-          if (isNaN(val) || val < 1) val = 1;
-          if (val > 10) val = 10;
-          char[field] = val;
-          target.value = val;
-        }
-        saveData();
-        updateCardBadges(card, char);
-      }
-    });
+        ['t1', 't2', 't3'].forEach(key => {
+          const numInput = document.createElement('input');
+          numInput.type = "number";
+          numInput.min = "1";
+          numInput.max = "10";
+          numInput.placeholder = "1";
+          numInput.value = (char[key] !== undefined && char[key] !== null) ? char[key] : '';
+          numInput.className = "w-full text-center py-0.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 focus:outline-none focus:border-slate-400 transition";
+          numInput.oninput = (e) => {
+            let val = e.target.value;
+            if (val !== '') {
+              let num = parseInt(val, 10);
+              if (num > 10) num = 10;
+              if (num < 1) num = 1;
+              val = num;
+              e.target.value = num;
+            }
+            characters[index][key] = val;
+            updateBadges(card, characters[index]);
+            saveData();
+          };
+          row2.appendChild(numInput);
+        });
 
-    // 删除角色卡片
-    charactersListEl.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-action="delete"]');
-      if (!btn) return;
+        // 第三排：计算结果 (左金、中银、右棕 #c69468)
+        const row3 = document.createElement('div');
+        row3.className = "grid grid-cols-3 gap-1 pt-0.5 border-t border-slate-100 dark:border-slate-800/80";
 
-      const card = btn.closest('[data-id]');
-      if (!card) return;
+        // 金色 (左)
+        const goldBox = document.createElement('div');
+        goldBox.className = "flex items-center justify-center gap-1 bg-amber-500/10 rounded py-0.5 border border-amber-500/20";
+        goldBox.title = "金色天赋书";
+        goldBox.innerHTML = `
+          <span class="w-[5px] h-[5px] rounded-full shrink-0" style="background-color: #f59e0b;"></span>
+          <span class="count-gold text-xs font-bold text-amber-700 dark:text-amber-300 leading-none">0</span>
+        `;
 
-      const id = card.dataset.id;
-      characters = characters.filter(c => c.id !== id);
-      if (characters.length === 0) {
-        characters.push({ id: 'c_' + Date.now(), name: '', schedule: SCHEDULE_OPTIONS[0], a: '', e: '', q: '' });
-      }
-      saveData();
-      renderCards();
-    });
+        // 银色 (中)
+        const silverBox = document.createElement('div');
+        silverBox.className = "flex items-center justify-center gap-1 bg-slate-500/10 rounded py-0.5 border border-slate-500/20";
+        silverBox.title = "银色天赋书";
+        silverBox.innerHTML = `
+          <span class="w-[5px] h-[5px] rounded-full shrink-0" style="background-color: #94a3b8;"></span>
+          <span class="count-silver text-xs font-bold text-slate-700 dark:text-slate-300 leading-none">0</span>
+        `;
 
-    // 点击添加角色卡片
-    document.getElementById('addCharBtn').addEventListener('click', () => {
-      characters.push({
-        id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 4),
-        name: '',
-        schedule: SCHEDULE_OPTIONS[0],
-        a: '',
-        e: '',
-        q: ''
+        // 棕色 (右，精确使用 #c69468)
+        const brownBox = document.createElement('div');
+        brownBox.className = "flex items-center justify-center gap-1 rounded py-0.5 border";
+        brownBox.style.backgroundColor = "rgba(198, 148, 104, 0.1)";
+        brownBox.style.borderColor = "rgba(198, 148, 104, 0.28)";
+        brownBox.title = "棕色天赋书";
+        brownBox.innerHTML = `
+          <span class="w-[5px] h-[5px] rounded-full shrink-0" style="background-color: #c69468;"></span>
+          <span class="count-brown text-xs font-bold leading-none" style="color: #c69468;">0</span>
+        `;
+
+        row3.appendChild(goldBox);
+        row3.appendChild(silverBox);
+        row3.appendChild(brownBox);
+
+        card.appendChild(row1);
+        card.appendChild(row2);
+        card.appendChild(row3);
+
+        updateBadges(card, char);
+        container.appendChild(card);
       });
+    }
+
+    // 添加新角色按钮
+    document.getElementById('add-btn').onclick = () => {
+      characters.push({
+        id: 'c_' + Date.now() + Math.random().toString(36).slice(2, 5),
+        name: '',
+        days: '一/四',
+        t1: '',
+        t2: '',
+        t3: ''
+      });
+      render();
       saveData();
-      renderCards();
-
-      // 自动聚焦新角色的名称输入框
+      // 聚焦新加项
       setTimeout(() => {
-        const lastCard = charactersListEl.lastElementChild;
-        if (lastCard) {
-          const input = lastCard.querySelector('input[data-field="name"]');
-          if (input) input.focus();
-        }
+        const lastInput = document.querySelector('#character-list > div:last-child input[type="text"]');
+        if (lastInput) lastInput.focus();
       }, 50);
-    });
+    };
 
-    // 自适应 Notion / 操作系统明暗模式
-    function syncTheme() {
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-    syncTheme();
-    if (window.matchMedia) {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncTheme);
-    }
-
-    // 初始化加载
+    // 初始启动加载
     loadData();
-    renderCards();
   </script>
 </body>
 </html>
