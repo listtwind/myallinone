@@ -26,7 +26,7 @@
       padding: 4px;
       box-sizing: border-box;
       overflow-x: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: transparent;
       user-select: none;
     }
@@ -42,10 +42,10 @@
 </head>
 <body class="text-slate-800 dark:text-slate-200">
   <div class="w-full flex flex-col gap-2">
-    <!-- 顶部标题行：纯文本，无边框分隔线 -->
-    <header class="px-0.5 pt-0.5 pb-0">
+    <!-- 顶部标题行：仅包含纯文本标题，无任何圆点、图标或分隔线 -->
+    <div class="px-0.5 pt-0.5">
       <h1 class="text-xs font-bold text-slate-800 dark:text-slate-100 tracking-tight">天赋书计算器</h1>
-    </header>
+    </div>
 
     <!-- 角色列表容器 -->
     <div id="character-list" class="flex flex-col gap-1.5"></div>
@@ -54,7 +54,7 @@
     <button 
       id="add-btn" 
       type="button"
-      class="w-full py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] rounded border border-slate-200 dark:border-slate-700 transition flex items-center justify-center gap-1"
+      class="w-full py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] rounded border border-slate-200 dark:border-slate-700 transition flex items-center justify-center gap-1"
     >
       <span class="text-xs leading-none">＋</span> 添加角色
     </button>
@@ -71,7 +71,7 @@
     const LOCAL_KEY = 'genshin_talent_calc_180px_data';
     // ============================================================
 
-    // 天赋升级各级消耗 (单技能累计)
+    // 天赋升级单技能累计所需材料 (2 ~ 10 级)
     const LEVEL_REQUIREMENTS = {
       2: { brown: 3, silver: 0, gold: 0 },
       3: { brown: 0, silver: 2, gold: 0 },
@@ -110,26 +110,6 @@
 
     let characters = [];
     let debounceTimer = null;
-    const syncIndicator = document.getElementById('sync-indicator');
-
-    function setSyncStatus(status) {
-      if (!syncIndicator) return;
-      if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId) {
-        syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600";
-        syncIndicator.title = "本地保存 (未配置云同步)";
-        return;
-      }
-      if (status === 'syncing') {
-        syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse";
-        syncIndicator.title = "正在同步至云端...";
-      } else if (status === 'synced') {
-        syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
-        syncIndicator.title = "已同步到云端";
-      } else if (status === 'error') {
-        syncIndicator.className = "w-1.5 h-1.5 rounded-full bg-rose-500";
-        syncIndicator.title = "云同步异常 (保存在本地)";
-      }
-    }
 
     async function loadData() {
       const local = localStorage.getItem(LOCAL_KEY);
@@ -144,11 +124,9 @@
       render();
 
       if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.apiKey) {
-        setSyncStatus('offline');
         return;
       }
 
-      setSyncStatus('syncing');
       try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
           headers: {
@@ -163,9 +141,8 @@
           localStorage.setItem(LOCAL_KEY, JSON.stringify(characters));
           render();
         }
-        setSyncStatus('synced');
       } catch (err) {
-        setSyncStatus('error');
+        console.warn("云端拉取失败，已使用本地数据:", err);
       }
     }
 
@@ -173,15 +150,13 @@
       localStorage.setItem(LOCAL_KEY, JSON.stringify(characters));
 
       if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.apiKey) {
-        setSyncStatus('offline');
         return;
       }
 
-      setSyncStatus('syncing');
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         try {
-          const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
+          await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -190,10 +165,8 @@
             },
             body: JSON.stringify({ characters })
           });
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          setSyncStatus('synced');
         } catch (e) {
-          setSyncStatus('error');
+          console.error("云端自动保存失败:", e);
         }
       }, 700);
     }
@@ -217,7 +190,7 @@
         card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-1.5 flex flex-col gap-1.5 shadow-sm";
         card.dataset.id = char.id || index;
 
-        // 第一排：角色名 (默认空白) + 副本时间 (三选一) + 删除
+        // 第一排：角色名 (默认空白) + 副本时间 (三选一) + 删除 (×)
         const row1 = document.createElement('div');
         row1.className = "flex items-center gap-1";
 
@@ -337,7 +310,7 @@
       });
     }
 
-    // 添加新角色按钮
+    // 添加新角色按钮点击监听
     document.getElementById('add-btn').onclick = () => {
       characters.push({
         id: 'c_' + Date.now() + Math.random().toString(36).slice(2, 5),
@@ -349,14 +322,13 @@
       });
       render();
       saveData();
-      // 聚焦新加项
       setTimeout(() => {
         const lastInput = document.querySelector('#character-list > div:last-child input[type="text"]');
         if (lastInput) lastInput.focus();
       }, 50);
     };
 
-    // 初始启动加载
+    // 初始加载
     loadData();
   </script>
 </body>
