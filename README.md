@@ -34,4 +34,9 @@
   ```text
   https://listtwind.github.io/myallinone/notion/heatmaponline.html
   ```
+
+  ### 原天赋书计算器：
+  ```text
+  https://listtwind.github.io/myallinone/notion/material-calculator.html
+  ```
 </details>
