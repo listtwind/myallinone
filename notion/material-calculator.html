@@ -189,7 +189,7 @@
         card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-1.5 flex flex-col gap-1.5 shadow-sm";
         card.dataset.id = char.id || index;
 
-        // 第一排：角色名 + 副本时间 + 删除按钮
+        // 第一排：角色名 (居中) + 副本时间 (单选框居中，下拉菜单选项靠左) + 删除按钮
         const row1 = document.createElement('div');
         row1.className = "flex items-center gap-1";
 
@@ -197,18 +197,20 @@
         nameInput.type = "text";
         nameInput.placeholder = "角色名";
         nameInput.value = char.name || '';
-        nameInput.className = "w-[68px] px-1 py-0.5 text-[11px] bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition";
+        nameInput.className = "w-[68px] px-1 py-0.5 text-[11px] text-center bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition";
         nameInput.oninput = (e) => {
           characters[index].name = e.target.value;
           saveData();
         };
 
         const select = document.createElement('select');
-        select.className = "w-[64px] px-0.5 py-0.5 text-[10px] bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:border-slate-400 transition";
+        select.className = "w-[64px] px-0.5 py-0.5 text-[10px] text-center [text-align-last:center] bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:border-slate-400 transition";
         ['一/四', '二/五', '三/六'].forEach(day => {
           const opt = document.createElement('option');
           opt.value = day;
           opt.textContent = day;
+          opt.className = "text-left";
+          opt.style.textAlign = "left";
           if ((char.days || '一/四') === day) opt.selected = true;
           select.appendChild(opt);
         });
@@ -263,7 +265,7 @@
           row2.appendChild(numInput);
         });
 
-        // 第三排：各品阶天赋书 (每种占一排：左侧所需，右侧已有输入框)
+        // 第三排：各品阶天赋书
         const row3 = document.createElement('div');
         row3.className = "flex flex-col gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/80";
 
@@ -273,14 +275,16 @@
             title: '金色天赋书',
             dotColor: '#f59e0b',
             boxClass: 'bg-amber-500/10 border-amber-500/20',
-            countClass: 'count-gold text-amber-700 dark:text-amber-300'
+            countClass: 'count-gold text-amber-700 dark:text-amber-300',
+            textColorClass: 'text-amber-700 dark:text-amber-300'
           },
           {
             key: 'haveSilver',
             title: '银色天赋书',
             dotColor: '#94a3b8',
             boxClass: 'bg-slate-500/10 border-slate-500/20',
-            countClass: 'count-silver text-slate-700 dark:text-slate-300'
+            countClass: 'count-silver text-slate-700 dark:text-slate-300',
+            textColorClass: 'text-slate-700 dark:text-slate-300'
           },
           {
             key: 'haveBrown',
@@ -288,7 +292,8 @@
             dotColor: '#c69468',
             boxStyle: 'background-color: rgba(198, 148, 104, 0.1); border-color: rgba(198, 148, 104, 0.28);',
             countClass: 'count-brown',
-            countStyle: 'color: #c69468;'
+            countStyle: 'color: #c69468;',
+            textStyle: 'color: #c69468;'
           }
         ];
 
@@ -312,7 +317,9 @@
           ownedInput.min = "0";
           ownedInput.placeholder = "已有";
           ownedInput.value = (char[book.key] !== undefined && char[book.key] !== null) ? char[book.key] : '';
-          ownedInput.className = "w-full text-center py-0.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition";
+          ownedInput.className = `w-full text-center py-0.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded placeholder-slate-400 focus:outline-none focus:border-slate-400 transition ${book.textColorClass || ''}`;
+          if (book.textStyle) ownedInput.style.cssText = book.textStyle;
+
           ownedInput.oninput = (e) => {
             let val = e.target.value;
             if (val !== '') {
