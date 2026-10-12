@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>记录</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body {
+      width: 180px;
+      max-width: 180px;
+      min-width: 180px;
+      margin: 0;
+      padding: 4px;
+      box-sizing: border-box;
+      overflow-x: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: transparent;
+      user-select: none;
+    }
+  </style>
+</head>
+<body class="text-slate-800 dark:text-slate-200">
+  <div class="w-full flex flex-col gap-2">
+    <!-- 顶部标题行 -->
+    <div class="px-0.5 pt-0.5">
+      <h1 class="text-xs font-bold text-slate-800 dark:text-slate-100 tracking-tight">记录</h1>
+    </div>
+
+    <!-- 统一大方框容器 -->
+    <div id="tracker-list" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2 flex flex-col gap-1.5 shadow-sm"></div>
+
+    <!-- 添加记录输入面板 (默认隐藏) -->
+    <div id="add-form" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-1.5 flex flex-col gap-1.5 shadow-sm">
+      <input 
+        id="new-name" 
+        type="text" 
+        placeholder="项目" 
+        class="w-full px-1.5 py-0.5 text-[11px] bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition"
+      >
+      <input 
+        id="new-date" 
+        type="text" 
+        placeholder="YYYY.M.D" 
+        class="w-full px-1.5 py-0.5 text-[11px] bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition"
+      >
+      <div class="flex items-center justify-end gap-1">
+        <button 
+          id="cancel-btn" 
+          type="button" 
+          class="px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+        >取消</button>
+        <button 
+          id="save-btn" 
+          type="button" 
+          class="px-2 py-0.5 text-[10px] font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded border border-slate-200 dark:border-slate-700 transition"
+        >保存</button>
+      </div>
+    </div>
+
+    <!-- 添加记录按钮 (与天赋计算器保持一致) -->
+    <button 
+      id="add-btn" 
+      type="button" 
+      class="w-full py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] rounded border border-slate-200 dark:border-slate-700 transition flex items-center justify-center gap-1"
+    >
+      <span class="text-xs leading-none">＋</span> 添加记录
+    </button>
+  </div>
+
+  <script>
+    // ================= 云同步配置 (JSONbin.io) =================
+    const JSONBIN_CONFIG = {
+      binId: "6accd950ffd5d16053643925",
+      apiKey: "$2a$10$ZMPI1giAz6admUWWgW3RHeqMugBe3Cx5zQnz.RMZVkCsmE9ukdmFq",
+      enabled: true
+    };
+    const LOCAL_KEY = 'record_tracker_180px_data';
+    // ==========================================================
+
+    const DEFAULT_TRACKERS = [];
+
+    let trackerItems = [];
+    let debounceTimer = null;
+
+    // 解析日期字符串：支持 YYYY.M.D、YYYY.MM.DD、YYYY-M-D、YYYY/M/D，单双位均兼容
+    function parseDate(dateStr) {
+      const parts = String(dateStr).trim().split(/[./-]/);
+      if (parts.length < 3) return null;
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+      if (m < 0 || m > 11 || d < 1 || d > 31) return null;
+      return new Date(y, m, d);
+    }
+
+    function renderTrackers() {
+      const container = document.getElementById('tracker-list');
+      container.innerHTML = '';
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (trackerItems.length === 0) {
+        container.innerHTML = '<div class="text-[11px] text-slate-400 text-center py-0.5">暂无记录</div>';
+        return;
+      }
+
+      trackerItems.forEach((item, index) => {
+        const targetDate = parseDate(item.date);
+        if (!targetDate) return;
+
+        const diffMs = targetDate.getTime() - today.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+        let textHtml = '';
+
+        if (diffDays <= 0) {
+          // 正计时 (早于或等于当天)：包含今天在内，天数算上当天 (+1)
+          const passedDays = Math.abs(diffDays) + 1;
+          textHtml = `<span>${item.name}已</span><span class="bg-slate-500/10 text-slate-700 dark:text-slate-300 px-1 py-0.5 rounded font-bold text-xs mx-0.5">${passedDays}</span><span>天</span>`;
+        } else {
+          // 倒计时 (晚于当天)：灰色底色高亮数字
+          if (diffDays < 30) {
+            textHtml = `<span>${item.name}在</span><span class="bg-slate-500/10 text-slate-700 dark:text-slate-300 px-1 py-0.5 rounded font-bold text-xs mx-0.5">${diffDays}</span><span>天后</span>`;
+          } else {
+            const monthsCount = Math.floor(diffDays / 30);
+            textHtml = `<span>${item.name}在</span><span class="bg-slate-500/10 text-slate-700 dark:text-slate-300 px-1 py-0.5 rounded font-bold text-xs mx-0.5">${monthsCount}</span><span>个月后</span>`;
+          }
+        }
+
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 text-left leading-normal";
+
+        const textWrap = document.createElement('div');
+        textWrap.className = "flex items-center truncate";
+        textWrap.innerHTML = textHtml;
+
+        const delBtn = document.createElement('button');
+        delBtn.type = "button";
+        delBtn.innerHTML = "×";
+        delBtn.className = "text-slate-300 dark:text-slate-600 hover:text-rose-500 active:scale-95 text-xs font-bold leading-none px-0.5 rounded transition shrink-0 ml-1";
+        delBtn.title = "删除";
+        delBtn.onclick = () => {
+          trackerItems.splice(index, 1);
+          renderTrackers();
+          saveData();
+        };
+
+        row.appendChild(textWrap);
+        row.appendChild(delBtn);
+        container.appendChild(row);
+      });
+    }
+
+    function saveData() {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(trackerItems));
+
+      if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.apiKey) {
+        return;
+      }
+
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Master-Key': JSONBIN_CONFIG.apiKey,
+              'X-Access-Key': JSONBIN_CONFIG.apiKey
+            },
+            body: JSON.stringify({ trackers: trackerItems })
+          });
+        } catch (e) {
+          console.error("云端保存失败:", e);
+        }
+      }, 700);
+    }
+
+    async function loadData() {
+      const local = localStorage.getItem(LOCAL_KEY);
+      if (local) {
+        try { trackerItems = JSON.parse(local); } catch (e) { trackerItems = []; }
+      }
+
+      if (!Array.isArray(trackerItems)) {
+        trackerItems = DEFAULT_TRACKERS;
+      }
+
+      renderTrackers();
+
+      if (!JSONBIN_CONFIG.enabled || !JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.apiKey) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
+          headers: {
+            'X-Master-Key': JSONBIN_CONFIG.apiKey,
+            'X-Access-Key': JSONBIN_CONFIG.apiKey
+          }
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        if (data.record && Array.isArray(data.record.trackers)) {
+          trackerItems = data.record.trackers;
+          localStorage.setItem(LOCAL_KEY, JSON.stringify(trackerItems));
+          renderTrackers();
+        }
+      } catch (err) {
+        console.warn("云端拉取失败，已使用本地数据:", err);
+      }
+    }
+
+    // 交互逻辑绑定
+    const addBtn = document.getElementById('add-btn');
+    const addForm = document.getElementById('add-form');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const saveBtn = document.getElementById('save-btn');
+    const nameInput = document.getElementById('new-name');
+    const dateInput = document.getElementById('new-date');
+
+    addBtn.onclick = () => {
+      addBtn.classList.add('hidden');
+      addForm.classList.remove('hidden');
+      nameInput.focus();
+    };
+
+    function closeForm() {
+      nameInput.value = '';
+      dateInput.value = '';
+      addForm.classList.add('hidden');
+      addBtn.classList.remove('hidden');
+    }
+
+    function submitForm() {
+      const nameVal = nameInput.value.trim();
+      const dateVal = dateInput.value.trim();
+      if (!nameVal || !dateVal) return;
+
+      const parsed = parseDate(dateVal);
+      if (!parsed) return;
+
+      trackerItems.push({ name: nameVal, date: dateVal });
+      renderTrackers();
+      saveData();
+      closeForm();
+    }
+
+    cancelBtn.onclick = closeForm;
+    saveBtn.onclick = submitForm;
+
+    [nameInput, dateInput].forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitForm();
+        if (e.key === 'Escape') closeForm();
+      });
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
