@@ -135,7 +135,7 @@
 
         const textWrap = document.createElement('div');
         textWrap.className = "flex items-center truncate";
-        textWrap.innerHTML = textHtml;
+        textWrap.innerHTML = `<span class="w-[4px] h-[4px] rounded-full bg-slate-400 dark:bg-slate-500 shrink-0 mr-1.5"></span>` + textHtml;
 
         const delBtn = document.createElement('button');
         delBtn.type = "button";
