@@ -5,65 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Time Progress Widget</title>
 <style>
-    /* 全局重置与居中 */
+    /* 全局重置与居中：自适应 Notion 嵌入块的任意尺寸 */
+    * {
+        box-sizing: border-box;
+    }
+
     body {
         margin: 0;
+        padding: 0;
         display: flex;
         justify-content: center;
         align-items: center;
         min-height: 100vh;
-        background-color: #ffffff;
+        background-color: transparent; /* 透明背景，完美适配 Notion 明暗主题 */
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    /* 容器：已删除 max-width，使其能够 100% 贴合父级插件空间 */
+    /* 容器：随插件嵌入窗口弹性撑满并居中展示 */
     .widget-container {
-        padding: 20px 24px;
-        width: 100%;
-        box-sizing: border-box;
+        padding: 16px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
 
-    /* 进度条组 */
+    /* 进度条垂直排列列表 */
     .progress-group {
         display: flex;
         flex-direction: column;
         gap: 12px; 
     }
     
-    /* 单行布局：左侧进度条，右侧文字 */
+    /* 单行布局：进度条 + 右侧文字 */
     .progress-item {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 16px;
+        gap: 14px;
     }
 
-    /* 进度条外框：通过 flex-grow: 1 吸收所有剩余空间，实现自适应伸缩 */
+    /* 进度条外框：如图形状（微圆角深黑边框，内嵌白底与留白） */
     .progress-outline {
-        flex-grow: 1;
-        height: 22px;
-        border: 2px solid #4f4f4f;
-        border-radius: 12px;
-        padding: 2px; 
-        box-sizing: border-box;
+        width: 160px;          /* 进度条固定长度（可按需调长或调短） */
+        height: 24px;         /* 进度条粗细/高度 */
+        border: 2px solid #111111;
+        border-radius: 6px;   /* 截图风格的微圆角 */
+        padding: 2.5px;       /* 边框与内部填充物的微小缝隙 */
+        background-color: #ffffff;
         display: flex;
+        align-items: center;
+        flex-shrink: 0;
     }
 
-    /* 进度条填充物 */
+    /* 进度条内部纯黑填充 */
     .progress-fill {
         height: 100%;
-        background-color: #4f4f4f;
-        border-radius: 8px; 
-        width: 0%; 
-        transition: width 1s linear; 
+        background-color: #111111;
+        border-radius: 2px;
+        width: 0%;
+        transition: width 0.8s ease-out;
     }
 
-    /* 右侧百分比文本：定宽防止拉伸或挤压 */
+    /* 右侧文字说明 */
     .progress-text {
         margin: 0;
-        font-size: 15px;
-        color: #4f4f4f;
-        min-width: 80px; 
+        font-size: 14px;
+        font-weight: 500;
+        color: #555555;
+        min-width: 85px;
+        letter-spacing: -0.2px;
     }
 </style>
 </head>
@@ -103,7 +112,7 @@
 
 <script>
     // ==========================================
-    // 核心算法：时间戳差值比例推演
+    // 核心算法：保留原有时间戳比例推演
     // ==========================================
     function updateTimeProgress() {
         const now = new Date();
@@ -118,7 +127,7 @@
         const dayTotalMs = 24 * 60 * 60 * 1000;
         const dayProgress = (nowMs - startOfDay) / dayTotalMs;
 
-        // 2. Week 进度 (周一为一周起点)
+        // 2. Week 进度 (周一为起点)
         const dayOfWeek = now.getDay();
         const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
         const startOfWeek = new Date(year, month, date - diffToMonday).getTime();
@@ -146,8 +155,10 @@
         ];
 
         dataMap.forEach(item => {
-            document.getElementById(`fill-${item.id}`).style.width = `${item.percent}%`;
-            document.getElementById(`text-${item.id}`).innerText = `${item.label}: ${item.percent}%`;
+            const fillElem = document.getElementById(`fill-${item.id}`);
+            const textElem = document.getElementById(`text-${item.id}`);
+            if (fillElem) fillElem.style.width = `${item.percent}%`;
+            if (textElem) textElem.innerText = `${item.label}: ${item.percent}%`;
         });
     }
 
